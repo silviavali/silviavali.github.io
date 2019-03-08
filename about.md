@@ -30,6 +30,7 @@ Twitter: [https://twitter.com/silviavali](https://twitter.com/silviavali)
 	- TallinnSec 2018, Tallinn, Estonia
 	- CyberChess 2018, Riga, Latvia
 	- GoSec 2018, Montreal, Canada
+	- Hack in the Box 2018, Amsterdam, the Netherlands
 
 ### TallinnSec meetup series
 
