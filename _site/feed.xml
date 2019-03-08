@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-03-08T10:39:50+02:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-03-08T10:42:33+02:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
 </subtitle><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><entry><title type="html">Writing a 64-bit custom encoder</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE4/" rel="alternate" type="text/html" title="Writing a 64-bit custom encoder" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE4</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE4/">&lt;p&gt;This blog post covers the 4/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; where we are going to create our own custom encoding scheme in order to use it with an execve-stack as shellcode. As a second step I am presenting a decoder routine for the custom encoding sceme which decodes the shellcode in memory when ran.&lt;br /&gt;
 &lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
 
@@ -83,7 +83,7 @@ _start:
 
 &lt;p&gt;If you would examine the addresses for user and kernel space, it is also pretty clear about the number of actually addressable bits which is &lt;code class=&quot;MathJax_Preview&quot;&gt;2^{48}&lt;/code&gt;&lt;script type=&quot;math/tex&quot;&gt;2^{48}&lt;/script&gt; for user and kernel space combined. At the moment this is found feasible as current CPUs only use the lowr of 48 bits and more is not needed.&lt;/p&gt;
 
-&lt;p class=&quot;figure&quot;&gt;&lt;img src=&quot;/assets/img/SLAE/vas.png&quot; alt=&quot;&quot; class=&quot;lead&quot; /&gt;
+&lt;p class=&quot;figure&quot;&gt;&lt;img src=&quot;/assets/img/SLAE/vas.png&quot; alt=&quot;&quot; class=&quot;lead&quot; data-width=&quot;50%&quot; /&gt;
 Virtual Address Space for 64-bit architecture&lt;/p&gt;
 
 &lt;h3 id=&quot;canonical-addresses&quot;&gt;Canonical addresses&lt;/h3&gt;
