@@ -2,11 +2,7 @@
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 <url>
 <loc>http://localhost:4000/blog/</loc>
-<lastmod>2019-03-07T20:51:37+02:00</lastmod>
-</url>
-<url>
-<loc>http://localhost:4000/blog/2018-06-01-blog-content-iii/</loc>
-<lastmod>2018-06-01T00:00:00+03:00</lastmod>
+<lastmod>2019-03-08T09:48:09+02:00</lastmod>
 </url>
 <url>
 <loc>http://localhost:4000/blog/2018-12-01-electron/</loc>
@@ -35,10 +31,7 @@
 <loc>http://localhost:4000/</loc>
 </url>
 <url>
-<loc>http://localhost:4000/page-2/</loc>
-</url>
-<url>
 <loc>http://localhost:4000/assets/Resume.pdf</loc>
-<lastmod>2019-03-07T20:42:07+02:00</lastmod>
+<lastmod>2019-03-08T09:15:09+02:00</lastmod>
 </url>
 </urlset>

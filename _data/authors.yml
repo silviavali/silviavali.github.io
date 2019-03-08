@@ -10,15 +10,15 @@ author:
   # Markdown enabled, can use multiple paragraphs (enabled by `|`)
   about:             |
     My name is Silvia. This blog just contains various things that interest me, but probably relatively more assembly stuff.
-    I count myself quite new to the ITsec community as I am almost 2 years in. If you wonder where I am from - Estonia.
+    I count myself quite new to the ITsec community as I am only 2 years in.
 
   # This photo will be used in the about section.
   picture:
-    path:            https://placehold.it/128x128
+    path:            /assets/img/profile.jpg
     # srcset is optional, but can be used to provide higher res versions for retina displays
-    srcset:
-      1x:            https://placehold.it/128x128
-      2x:            https://placehold.it/256x256
+    #srcset:
+    #  1x:            https://placehold.it/128x128
+    #  2x:            https://placehold.it/256x256
 
   # Social media icons in sidebar.
   # Comment/uncommet to show/hide. Rearrange to change the order in which they appear.

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-03-07T20:51:37+02:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-03-08T09:48:09+02:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
 </subtitle><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><entry><title type="html">Writing a 64-bit custom encoder</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE4/" rel="alternate" type="text/html" title="Writing a 64-bit custom encoder" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE4</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE4/">&lt;p&gt;This blog post covers the 4/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; where we are going to create our own custom encoding scheme in order to use it with an execve-stack as shellcode. As a second step I am presenting a decoder routine for the custom encoding sceme which decodes the shellcode in memory when ran.&lt;br /&gt;
 &lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
 
@@ -1116,22 +1116,4 @@ never developed for desktop before&lt;/li&gt;
   &lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;hr /&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This article is supporting my talk at the NorthSec 2018 conference in Montreal titled “Only an Electron Away from Code Execution” and the corresponding slides can be found here.</summary></entry><entry><title type="html">Message boxes</title><link href="http://localhost:4000/blog/2018-06-01-blog-content-iii/" rel="alternate" type="text/html" title="Message boxes" /><published>2018-06-01T00:00:00+03:00</published><updated>2018-06-01T00:00:00+03:00</updated><id>http://localhost:4000/blog/blog-content-iii</id><content type="html" xml:base="http://localhost:4000/blog/2018-06-01-blog-content-iii/">&lt;p class=&quot;message&quot;&gt;&lt;strong&gt;NOTE&lt;/strong&gt;: You can add a message box.&lt;/p&gt;
-
-&lt;h2 id=&quot;large-text&quot;&gt;Large text&lt;/h2&gt;
-&lt;p class=&quot;lead&quot;&gt;You can add large text.&lt;/p&gt;
-
-&lt;h2 id=&quot;large-images&quot;&gt;Large images&lt;/h2&gt;
-&lt;p&gt;&lt;img src=&quot;https://placehold.it/800x100&quot; alt=&quot;Full-width image&quot; class=&quot;lead&quot; data-width=&quot;800&quot; data-height=&quot;100&quot; /&gt;&lt;/p&gt;
-
-&lt;h2 id=&quot;captions-to-images&quot;&gt;Captions to images&lt;/h2&gt;
-&lt;p class=&quot;figure&quot;&gt;&lt;img src=&quot;https://placehold.it/800x100&quot; alt=&quot;Full-width image&quot; class=&quot;lead&quot; data-width=&quot;800&quot; data-height=&quot;100&quot; /&gt;
-A caption to an image.&lt;/p&gt;
-
-&lt;h2 id=&quot;large-quotes&quot;&gt;Large quotes&lt;/h2&gt;
-&lt;blockquote class=&quot;lead&quot;&gt;
-  &lt;p&gt;You can make a quote “pop out”.&lt;/p&gt;
-&lt;/blockquote&gt;
-
-&lt;h2 id=&quot;faded-text&quot;&gt;Faded text&lt;/h2&gt;
-&lt;p class=&quot;faded&quot;&gt;I’m faded, faded, faded.&lt;/p&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">Message boxes NOTE: You can add a message box.</summary></entry></feed>
+&lt;hr /&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This article is supporting my talk at the NorthSec 2018 conference in Montreal titled “Only an Electron Away from Code Execution” and the corresponding slides can be found here.</summary></entry></feed>
