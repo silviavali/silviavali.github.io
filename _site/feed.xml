@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-03-08T14:10:36+02:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-03-12T16:32:07+02:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
 </subtitle><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><entry><title type="html">Writing a 64-bit custom encoder</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE4/" rel="alternate" type="text/html" title="Writing a 64-bit custom encoder" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE4</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE4/">&lt;p&gt;This blog post covers the 4/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; where we are going to create our own custom encoding scheme in order to use it with an execve-stack as shellcode. As a second step I am presenting a decoder routine for the custom encoding sceme which decodes the shellcode in memory when ran.&lt;br /&gt;
 &lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
 
@@ -9,50 +9,147 @@
   &lt;li&gt;P0C with using execve-stack as the shellcode to encode with your schema and execute&lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;p&gt;Execve-stack shellcode:&lt;/p&gt;
+&lt;h3 id=&quot;encoding-scheme&quot;&gt;Encoding scheme&lt;/h3&gt;
+
+&lt;p&gt;I decided to implement an encoding scheme where I would divide the shellcode into 4 byte chunks and reverse the byte order in all of the chunks. For that to work, I also needed to check that the number of total bytes would be divisible by 4. For this I made the check in the python program code below &lt;code class=&quot;highlighter-rouge&quot;&gt;if (length%4 != 0)&lt;/code&gt;. If it turned out that the number of bytes of the shellcoding I am using was not divisible by 4 I padded the shellcode with &lt;code class=&quot;highlighter-rouge&quot;&gt;\x90&lt;/code&gt;-s as also seen on the picture below.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/encoding.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So the final encoder.py looks as follows:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;#execve stack shellcode from SLAE64 course
+import binascii
+
+j = 3
+i = 0
+
+shellcode = &quot;\x48\x31\xc0\x50\x48\xbb\x2f\x62\x69\x6e\x2f\x2f\x73\x68\x53\x48\x89\xe7\x50\x48\x89\xe2\x57\x48\x89\xe6\x48\x83\xc0\x3b\x0f\x05&quot;
+shellarray = bytearray(shellcode)
+length = len(shellarray)
+encoded = []
+
+encoded_shellcode = shellcode.encode('hex')
+input = &quot;Input: &quot;+ r&quot;\x&quot; + r&quot;\x&quot;.join(encoded_shellcode[n:n+2] for n in range(0, len(encoded_shellcode),2))
+print input
+
+#print &quot;Old length: %s&quot; % length
+
+if (length%4 != 0):
+	adding = 4 -(length%4)
+	for i in range (adding):
+		shellarray.append(0x90)
+
+#print &quot;New length with \\x90-s appended: %s&quot; % len(shellarray)
+
+#changing positions
+while(j &amp;lt;= len(shellarray)):
+	for i in range(4):
+		encoded.append(shellarray[j-i])
+	j = j + 4
+
+output = binascii.hexlify(bytearray(encoded))
+result = &quot;Output (\\xXX format):&quot; + r&quot;\x&quot; + r&quot;\x&quot;.join(output[n : n+2] for n in range(0, len(output), 2))
+print result
+result2 = &quot;Output (0xXX format): &quot; + r&quot;0x&quot; + r&quot;,0x&quot;.join(output[n : n+2] for n in range(0, len(output), 2))
+print result2
+
+
+
+# Input: \x48\x31\xc0\x50 \x48\xbb\x2f\x62 \x69\x6e\x2f\x73 \x68\x53\x48\x89 \xe7\x50\x48\x89 \xe2\x57\x48\x89 \xe6\x48\x83\xc0 \x3b\x0f\x05
+# Output \x50\xc0\x31\x48 \x62\x2f\xbb\x48 \x73\x2f\x6e\x69 \x89\x48\x53\x68 \x89\x48\x50\xe7 \x89\x48\x57\xe2 \xc0\x83\x48\xe6 \x90\x05\x0f\x3b
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Output:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ python ./encoder.py
+Input: \x48\x31\xc0\x50\x48\xbb\x2f\x62\x69\x6e\x2f\x2f\x73\x68\x53\x48\x89\xe7\x50\x48\x89\xe2\x57\x48\x89\xe6\x48\x83\xc0\x3b\x0f\x05
+Output (\xXX format):\x50\xc0\x31\x48\x62\x2f\xbb\x48\x2f\x2f\x6e\x69\x48\x53\x68\x73\x48\x50\xe7\x89\x48\x57\xe2\x89\x83\x48\xe6
+\x89\x05\x0f\x3b\xc0
+Output (0xXX format): 0x50,0xc0,0x31,0x48,0x62,0x2f,0xbb,0x48,0x2f,0x2f,0x6e,0x69,0x48,0x53,0x68,0x73,0x48,0x50,0xe7,0x89,0x48,0x57,
+0xe2,0x89,0x83,0x48,0xe6,0x89,0x05,0x0f,0x3b,0xc0
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;go-simple---htonl&quot;&gt;Go simple - htonl()&lt;/h3&gt;
+
+&lt;p&gt;In order for this encoder scheme to be useful for us, we should also implement the decoder stub for that particular encoding. Funnily enough I thought implementing the decoder for that would be super difficult and I would need to keep note of where I am currently in the decoded hex string, where are all the &lt;code class=&quot;highlighter-rouge&quot;&gt;4th*X&lt;/code&gt; bytes and when does the hex string end, but that turned out to be wrong. One evening I was thinking of my egghunter solution where I used an &lt;code class=&quot;highlighter-rouge&quot;&gt;access&lt;/code&gt; syscall for something that it was not really intended for. That funnily brought me to &lt;code class=&quot;highlighter-rouge&quot;&gt;htonl()&lt;/code&gt; function in C which I have previously used to convert something to network byte order. BUT … it also operates on data in 4 byte chunks and reverses the byte order. How convenient! So I made a quick example with &lt;code class=&quot;highlighter-rouge&quot;&gt;htonl()&lt;/code&gt; to see what instructions it is made up of in assembly and it turned out I only needed 1 instruction &lt;code class=&quot;highlighter-rouge&quot;&gt;bswap&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;htonl.c example&lt;/b&gt;:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;//$ gcc htonl.c -o htonl
+//$ gdb ./htonl
+
+#include &amp;lt;arpa/inet.h&amp;gt;
+int main() {
+  int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+  struct sockaddr_in server;
+  server.sin_family = AF_INET;
+  server.sin_port = htonl(80808080);
+  server.sin_addr.s_addr = htonl(INADDR_ANY);
+  // ...
+  return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/htonl.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;decoder&quot;&gt;Decoder&lt;/h3&gt;
+
+&lt;p&gt;That single instruction - &lt;code class=&quot;highlighter-rouge&quot;&gt;bswap&lt;/code&gt; - turned out to be the key to an easy solve for this decoder routine. The rest of the program is built using the JCP (Jmp-CALL-Pop) technique to get the address of encoded_shellcode to RBX via &lt;code class=&quot;highlighter-rouge&quot;&gt;pop rbx&lt;/code&gt;. In order to save the decoded shellcode somewhere on the stack in &lt;code class=&quot;highlighter-rouge&quot;&gt;allocate_space&lt;/code&gt; I am allocating the length of shellcode worth of space and saving the beginning address of decoded shellcode to R10 for later use. In &lt;code class=&quot;highlighter-rouge&quot;&gt;cmp&lt;/code&gt; section I am performing the check to see if I have reached to the end of the shellcode yet.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;decode&lt;/code&gt; section is undeniably the most important part here. This is where I use RBX to get the address of 1st byte in a 4-byte chunk and then iterating RCX to move from one 4-byte chunk to the next while using bswap to reverse the byte order back to its original order.&lt;/p&gt;
+
 &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;global _start
 
 section .text
 
 _start:
 
-	; First NULL push
+	jmp find_address
 
-	xor rax, rax
-	push rax
+decoder:
+	pop rbx                   ;get the address of the encoded_shellcode
+	xor rdi, rdi
+	xor rcx, RCX              ;counter
 
-	; push /bin//sh in reverse
+allocate_space:
+	sub rsp, 0x20             ;allocate space depending on the length of your shellcode
+	mov r10, rsp
+	jmp decode
 
-	mov rbx, 0x68732f2f6e69622f
-	push rbx
+cmp:
+	inc rcx
+	cmp rcx, 0x20             ;32 - length of the shellcode
+	jge decoded_shell
 
-	; store /bin//sh address in RDI
+decode:
+	mov edi, dword [rbx+rcx]
+	bswap edi                 ;reverse the order of 4 bytes
+	mov dword [rsp], edi
+	add rcx, 4
+	add rsp, 4
 
-	mov rdi, rsp
+	loop cmp
 
-	; Second NULL push
-	push rax
+find_address:
+	call decoder
 
-	; set RDX
-	mov rdx, rsp
+	encoded_shellcode:	db	0x50,0xc0,0x31,0x48,0x62,0x2f,0xbb,0x48,0x2f,0x2f,0x6e,0x69,0x48,
+    0x53,0x68,0x73,0x48,0x50,0xe7,0x89,0x48,0x57,0xe2,0x89,0x83,0x48,0xe6,0x89,0x05,0x0f,0x3b,0xc0
 
 
-	; Push address of /bin//sh
-	push rdi
-
-	; set RSI
-
-	mov rsi, rsp
-
-	; Call the Execve syscall
-	add rax, 59
-	syscall
+decoded_shell:
+	mov rsp, r10        ;get back to the top of the decoded shell on stack
+	push r10        ;put the address where decoded shell resides to the top of the stack so we can ret to it
+	ret
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
-&lt;p&gt;Dumping the shellcode as hexadecimal string:&lt;/p&gt;
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;objdump -d ./Execve-Stack|grep '[0-9a-f]:'|grep -v 'file'|cut -f2 -d:|cut -f1-6 -d' '|tr -s ' '|tr '\t' ' '|sed 's/ $//g'|sed 's/ /\\x/g'|paste -d '' -s |sed 's/^/&quot;/'|sed 's/$/&quot;/g'
+&lt;h3 id=&quot;assemble-link-and-go&quot;&gt;Assemble, link and go&lt;/h3&gt;
 
-&quot;\x48\x31\xc0\x50\x48\xbb\x2f\x62\x69\x6e\x2f\x73\x68\x53\x48\x89\xe7\x50\x48\x89\xe2\x57\x48\x89\xe6\x48\x83\xc0\x3b\x0f\x05&quot;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ nasm -felf64 decoder.nasm -o decoder.o
+$ ld decoder.o -o decoder
+$ ./decoder
+
+$whoami
+silvia
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
 &lt;hr /&gt;
