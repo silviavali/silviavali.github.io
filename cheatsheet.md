@@ -10,19 +10,21 @@ order: 4
 ---
 
 
-[GDB reference](/cheatsheet/#gdb-reference)<br>
 
-Exercises:
+Subtopics:
 
 * [Testing shellcode](/cheatsheet/#test-shellcode)
 * [Hello World! in .data section](/cheatsheet/#hello-world-in-data-section)
 * [Hello World! JCP technique](/cheatsheet/#hello-world-jcp-technique)
 * [Execve](/cheatsheet/#execve)
 * [Buffer overflow](/cheatsheet/#buffer-overflow)
+* [GDB reference](/cheatsheet/#gdb-reference)
 
 Homework:
 
 * [Homework](/cheatsheet/#homework) - deadline 1st of December, 23:59
+
+All the examples have been tested on Ubuntu 20.04 LTS, kernel version 5.11.0-41-generic.
 
 ## [GDB reference](#gdb-reference)
 
