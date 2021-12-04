@@ -13,7 +13,7 @@ order: 4
 
 Subtopics:
 
-* [Testing shellcode](/cheatsheet/#test-shellcode)
+* [Testing shellcode](/cheatsheet/#testing-shellcode)
 * [Hello World! in .data section](/cheatsheet/#hello-world-in-data-section)
 * [Hello World! JCP technique](/cheatsheet/#hello-world-jcp-technique)
 * [Execve](/cheatsheet/#execve)
@@ -44,7 +44,8 @@ All the examples have been tested on Ubuntu 20.04 LTS, kernel version 5.11.0-41-
 | x/i $rbp | print the assembly instructions at address |
 | x/8bx $rbp-0x28 | display 8 bytes in hex beginning from address at $rbp-0x28 |
 
-## [Testing shellcode](#test-shellcode)
+
+## [Testing shellcode](#testing-shellcode)
 
 The usual shellcode testing program has been modified such that `code[]` is not a global variable anymore, but a local one. This change was made so that its value would still reside on stack.
 
