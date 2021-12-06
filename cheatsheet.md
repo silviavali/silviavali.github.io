@@ -210,7 +210,7 @@ file.close()
 
 ```
 
-It produces a payload file which you can execute together with the vulnerable program as `(cat payload | cat - ) | ./buffer`.
+It produces a payload file which you can execute together with the vulnerable program as `(cat payload; cat - ) | ./buffer`.
 
 ## [Homework](#homework)
 
