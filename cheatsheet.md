@@ -22,7 +22,7 @@ Subtopics:
 
 Homework:
 
-* [Homework](/cheatsheet/#homework) - deadline 1st of December, 23:59
+* [Homework](/cheatsheet/#homework) - deadline 20 of December 2021, 23:59
 
 All the examples have been tested on Ubuntu 20.04 LTS, kernel version 5.11.0-41-generic.
 
@@ -43,6 +43,7 @@ All the examples have been tested on Ubuntu 20.04 LTS, kernel version 5.11.0-41-
 | x/x 0x7fffffffdda8 | print the value in hex at address |
 | x/i $rbp | print the assembly instructions at address |
 | x/8bx $rbp-0x28 | display 8 bytes in hex beginning from address at $rbp-0x28 |
+| After gdb ./buffer and break main instructions run < payload| run < payload can be used to read input from a payload file instead of typing it in
 
 
 ## [Testing shellcode](#testing-shellcode)
