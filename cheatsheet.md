@@ -13,12 +13,13 @@ order: 4
 
 Subtopics:
 
+* [GDB reference](/cheatsheet/#gdb-reference)
 * [Testing shellcode](/cheatsheet/#testing-shellcode)
+* [Gethex](/cheatsheet/#gethex)
 * [Hello World! in .data section](/cheatsheet/#hello-world-in-data-section)
 * [Hello World! JCP technique](/cheatsheet/#hello-world-jcp-technique)
 * [Execve](/cheatsheet/#execve)
 * [Buffer overflow](/cheatsheet/#buffer-overflow)
-* [GDB reference](/cheatsheet/#gdb-reference)
 
 Homework:
 
@@ -65,6 +66,39 @@ int main()
 }
 
 ```
+
+## [gethex](#gethex)
+
+Make a new file in for example Documents folder:
+```
+cd ~/Documents
+touch gethex; chmod a+x gethex
+nano gethex
+```
+
+Gethex file content:
+```
+var1="$1"
+output=`for i in $(objdump -d $var1 -M intel |grep "^ " |cut -f2); do echo -n '\x'$i; done;echo`
+echo "$output"
+```
+
+Open file for editing:
+```
+sudo nano ~/.bashrc
+```
+
+Add to the end of the file:
+```
+export PATH="$PATH:$HOME/Documents/"
+```
+
+Finally:
+```
+source ~/.bashrc
+```
+
+
 
 ## [Hello World! in data section](#hello-world-in-data-section)
 
